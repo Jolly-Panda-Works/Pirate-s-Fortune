@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pirate's Fortune</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== SETUP POPUP ===== -->
+<div id="setup-screen">
+  <div id="setup-box">
+    <h1>⚓ Pirate's Fortune</h1>
+    <p class="sub">بازی رو تنظیم کن و شروع کن!</p>
+
+    <div class="setup-section">
+      <label>تعداد بازیکنان</label>
+      <div class="player-count-btns">
+        <div class="pc-btn" onclick="setPlayerCount(2)">۲ نفر</div>
+        <div class="pc-btn" onclick="setPlayerCount(3)">۳ نفر</div>
+        <div class="pc-btn sel" onclick="setPlayerCount(4)">۴ نفر</div>
+      </div>
+    </div>
+
+    <div class="setup-section">
+      <label>بازیکنان</label>
+      <div class="player-rows" id="player-rows"></div>
+    </div>
+
+    <button id="btn-play" onclick="startGame()">⚓ شروع بازی</button>
+  </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<div id="header">
+  <h1>⚓ Pirate's Fortune</h1>
+  <p>جزیره را کاوش کن، گنج جمع کن، زنده برگرد!</p>
+</div>
+
+<!-- ===== SCOREBOARD ===== -->
+<div id="scoreboard"></div>
+
+<!-- ===== GAME LAYOUT ===== -->
+<div id="game-layout">
+  <div class="ship-col" id="left-ships"></div>
+
+  <div id="center-col">
+    <div id="island-deck-area">
+      <div>
+        <div class="zone-title">🗺️ دک جزیره</div>
+        <div class="deck-stack" onclick="onDeckClick()">
+          <div class="card back" style="top:4px;left:4px;transform:rotate(-3deg)"></div>
+          <div class="card back" style="top:2px;left:2px;transform:rotate(-1deg)"></div>
+          <div class="card back"></div>
+          <div id="deck-count">—</div>
+        </div>
+      </div>
+      <div id="lost-loot-area">
+        <div>
+          <div class="zone-title">💀 لوت سوخته</div>
+          <div id="lost-count" style="font-size:2rem;color:var(--muted)">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone" id="exploration-zone">
+      <div class="zone-title">🏝️ منطقه اکتشاف <span id="exp-count">0</span></div>
+      <div class="cards-row" id="exploration-cards"></div>
+    </div>
+
+    <div id="action-area">
+      <div id="phase-label">آماده</div>
+      <div id="status-msg">بازی را شروع کن</div>
+      <div class="btn-row">
+        <button id="btn-draw" class="primary" onclick="playerDraw()" disabled>کشیدن کارت ⬇️</button>
+        <button id="btn-load" onclick="playerLoadCargo()" disabled>بارگیری به کشتی 🚢</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ship-col" id="right-ships"></div>
+</div>
+
+<!-- ABILITY POPUP -->
+<div id="popup-overlay">
+  <div id="popup">
+    <h2 id="popup-title"></h2>
+    <p id="popup-desc"></p>
+    <div class="card-choices" id="popup-choices"></div>
+    <div class="popup-btns" id="popup-btns"></div>
+  </div>
+</div>
+
+<!-- HAND-OFF POPUP -->
+<div id="handoff-overlay">
+  <div id="handoff-box">
+    <div class="ho-emoji" id="ho-emoji">🏴‍☠️</div>
+    <h2 id="ho-name"></h2>
+    <div class="ho-sub" id="ho-sub">نوبت توست!</div>
+    <div class="ho-score" id="ho-score"></div>
+    <div class="ho-cover">📱 گوشی رو به بازیکن بعدی بده — صفحه نمایش پنهانه</div>
+    <button class="primary" onclick="hideHandoff()">آماده‌ام، شروع کن! 🎮</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- GAME OVER -->
+<div id="gameover">
+  <div id="gameover-box">
+    <h2 id="go-title">بازی تمام شد</h2>
+    <p>دک خالی شد. نتیجه نهایی:</p>
+    <div class="go-scores" id="go-scores"></div>
+    <button class="primary" onclick="location.reload()">بازی جدید 🎮</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
