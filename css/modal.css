@@ -1,0 +1,7 @@
+/* modal.css
+ * Target-selection and ability-selection modal styling (Phase 14).
+ */
+
+.modal-root:empty {
+  display: none;
+}

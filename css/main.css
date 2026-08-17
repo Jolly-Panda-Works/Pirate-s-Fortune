@@ -1,0 +1,36 @@
+/* main.css
+ * Global resets, CSS custom properties (color/spacing/typography tokens),
+ * base element styles.
+ * Owned by: uiManager.js consumers (presentation only — no game logic).
+ * Phase: 0 (foundation) — populated further in Phase 12 (UI).
+ */
+
+:root {
+  --color-bg: #0b1d2a;
+  --color-surface: #123047;
+  --color-gold: #d9a441;
+  --color-danger: #a4342a;
+  --color-text: #f2e9d8;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  --font-base: system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-base);
+}

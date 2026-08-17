@@ -1,0 +1,38 @@
+{
+  "_comment": "Finalized in Phase 1 (Data Architecture). Values below are placeholders reflecting confirmed decisions in GDD §31.",
+  "deck": {
+    "totalCards": 60,
+    "goldCoin": {
+      "valueRange": [4, 9],
+      "cardCount": 6,
+      "hasAbility": false
+    },
+    "otherTypes": {
+      "count": 9,
+      "valueRange": [2, 7],
+      "cardsPerType": 6
+    }
+  },
+  "initialLostLoot": {
+    "totalCards": 10,
+    "rule": "one value-2 card from each of the 9 non-Gold-Coin types, plus one Gold Coin value-4 card"
+  },
+  "initialTreasureDeck": {
+    "totalCards": 50
+  },
+  "players": {
+    "min": 2,
+    "max": 4
+  },
+  "session": {
+    "targetMinutes": [10, 20]
+  },
+  "mvpAbilities": ["compass", "cannon", "captainShield"],
+  "postMvpAbilities": [
+    "pirateDagger",
+    "luckyAnchor",
+    "seaSerpent",
+    "treasureMap",
+    "treasureChestGoldenKey"
+  ]
+}

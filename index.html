@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Treasure Raiders</title>
+
+  <!-- Phase 0: stylesheet load order matters — base, layout, components, then overrides -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <link rel="stylesheet" href="css/modal.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+
+  <!-- Orientation gate: populated in Phase 16 -->
+  <div id="orientation-gate" class="orientation-gate" hidden>
+    <p data-i18n="orientation.rotateDevice">Please rotate your device to landscape.</p>
+  </div>
+
+  <!-- Root mount point for the board. uiManager.js owns everything inside this node. -->
+  <main id="app-root" class="app-root">
+    <!-- Gameplay zones (Treasure Deck, Lost Loot, Expedition Area, Ship Cargo,
+         Opponents, Actions, Modals) are rendered here starting Phase 12.
+         No gameplay markup exists at Phase 0. -->
+  </main>
+
+  <!-- Modal root: modalManager.js owns everything inside this node -->
+  <div id="modal-root" class="modal-root"></div>
+
+  <!-- ES module entry point. Everything else is imported from here. -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

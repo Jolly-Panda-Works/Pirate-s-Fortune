@@ -1,0 +1,11 @@
+/* layout.css
+ * Board layout: CSS grid areas for the gameplay zones
+ * (deck, lost loot, expedition area, ship cargo, opponents, actions).
+ * Uses logical properties (margin-inline-*, padding-inline-*) — see GDD §20/§29.4.
+ * No zone markup exists until Phase 12; this file stays structural-only for now.
+ */
+
+.app-root {
+  display: grid;
+  min-height: 100vh;
+}

@@ -1,0 +1,8 @@
+/* responsive.css
+ * Breakpoint tiers per GDD §21:
+ *   XL  >= 1366px   desktop
+ *   MD  1024-1365px tablet landscape
+ *   SM  844-1023px  compact landscape
+ *   XS  <= 932x430  phone landscape
+ * Populated in Phase 16. Layout reflow, not transform-scaling.
+ */

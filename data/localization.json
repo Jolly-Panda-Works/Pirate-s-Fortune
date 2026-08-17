@@ -1,0 +1,23 @@
+{
+  "_comment": "Full string set populated in Phase 15 (Localization). Root document direction: en -> ltr, fa -> rtl (GDD §20).",
+  "en": {
+    "dir": "ltr",
+    "orientation": {
+      "rotateDevice": "Please rotate your device to landscape."
+    },
+    "actions": {
+      "exploreFurther": "Explore Further",
+      "returnToShip": "Return to Ship"
+    }
+  },
+  "fa": {
+    "dir": "rtl",
+    "orientation": {
+      "rotateDevice": "لطفاً دستگاه خود را به حالت افقی بچرخانید."
+    },
+    "actions": {
+      "exploreFurther": "کاوش بیشتر",
+      "returnToShip": "بازگشت به کشتی"
+    }
+  }
+}
