@@ -7,6 +7,31 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.5.0] - Prompt 001: Data Architecture
+
+### Added
+- `data/cards.json`: full 60-card model, generated programmatically —
+  Gold Coin (values 4-9, 6 cards, no ability) + 9 other types (values 2-7,
+  6 cards each, one ability key each). Types: Compass, Cannon, Captain
+  Shield, Pirate Dagger, Lucky Anchor, Sea Serpent, Treasure Map, Treasure
+  Chest, Golden Key (the last two share the `treasureChestGoldenKey`
+  ability key per GDD §14.8).
+- `tests/unit/deck-model.test.js` — 9 assertions validating the deck model
+  against GDD §5 and cross-checking cards.json against gameConfig.json
+  (card counts, value ranges, no duplicate ids, every ability key
+  declared, initial Lost Loot derivation, deck totals). All passing.
+- `docs/phases/mvp-progress.md` — tracks completion status of every
+  roadmap prompt.
+
+### Changed
+- `data/gameConfig.json`: added `deck.otherTypes.typeKeys` (the 9 type
+  keys) and `initialLostLoot.cardIds` (the exact 10 derived card ids) so
+  later phases reference a checked source instead of re-deriving GDD §5.2's
+  rule by hand.
+- `package.json`: `test` script now runs the real suite via Node's
+  built-in test runner (`node --test`, no external dependency added, per
+  development rule 12) instead of the Phase-0 placeholder.
+
 ## [0.4.0] - Card abilities moved into core gameplay scope
 
 ### Changed

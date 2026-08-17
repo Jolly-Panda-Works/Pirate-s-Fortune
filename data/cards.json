@@ -1,4 +1,545 @@
 {
-  "_comment": "Populated in Phase 1 (Data Architecture). Must stay empty until then, per GDD §34.",
-  "cards": []
+  "_comment": "Full 60-card model per GDD §5. One card per value per type. Card names/values/abilities are the single source of truth here — gameplay code must dispatch by `ability` key only, never by `name` (rule 4).",
+  "cards": [
+    {
+      "id": "goldCoin-v4",
+      "name": "Gold Coin",
+      "type": "goldCoin",
+      "symbol": "goldCoin",
+      "value": 4,
+      "image": null,
+      "ability": null
+    },
+    {
+      "id": "goldCoin-v5",
+      "name": "Gold Coin",
+      "type": "goldCoin",
+      "symbol": "goldCoin",
+      "value": 5,
+      "image": null,
+      "ability": null
+    },
+    {
+      "id": "goldCoin-v6",
+      "name": "Gold Coin",
+      "type": "goldCoin",
+      "symbol": "goldCoin",
+      "value": 6,
+      "image": null,
+      "ability": null
+    },
+    {
+      "id": "goldCoin-v7",
+      "name": "Gold Coin",
+      "type": "goldCoin",
+      "symbol": "goldCoin",
+      "value": 7,
+      "image": null,
+      "ability": null
+    },
+    {
+      "id": "goldCoin-v8",
+      "name": "Gold Coin",
+      "type": "goldCoin",
+      "symbol": "goldCoin",
+      "value": 8,
+      "image": null,
+      "ability": null
+    },
+    {
+      "id": "goldCoin-v9",
+      "name": "Gold Coin",
+      "type": "goldCoin",
+      "symbol": "goldCoin",
+      "value": 9,
+      "image": null,
+      "ability": null
+    },
+    {
+      "id": "compass-v2",
+      "name": "Compass",
+      "type": "compass",
+      "symbol": "compass",
+      "value": 2,
+      "image": null,
+      "ability": "compass"
+    },
+    {
+      "id": "compass-v3",
+      "name": "Compass",
+      "type": "compass",
+      "symbol": "compass",
+      "value": 3,
+      "image": null,
+      "ability": "compass"
+    },
+    {
+      "id": "compass-v4",
+      "name": "Compass",
+      "type": "compass",
+      "symbol": "compass",
+      "value": 4,
+      "image": null,
+      "ability": "compass"
+    },
+    {
+      "id": "compass-v5",
+      "name": "Compass",
+      "type": "compass",
+      "symbol": "compass",
+      "value": 5,
+      "image": null,
+      "ability": "compass"
+    },
+    {
+      "id": "compass-v6",
+      "name": "Compass",
+      "type": "compass",
+      "symbol": "compass",
+      "value": 6,
+      "image": null,
+      "ability": "compass"
+    },
+    {
+      "id": "compass-v7",
+      "name": "Compass",
+      "type": "compass",
+      "symbol": "compass",
+      "value": 7,
+      "image": null,
+      "ability": "compass"
+    },
+    {
+      "id": "cannon-v2",
+      "name": "Cannon",
+      "type": "cannon",
+      "symbol": "cannon",
+      "value": 2,
+      "image": null,
+      "ability": "cannon"
+    },
+    {
+      "id": "cannon-v3",
+      "name": "Cannon",
+      "type": "cannon",
+      "symbol": "cannon",
+      "value": 3,
+      "image": null,
+      "ability": "cannon"
+    },
+    {
+      "id": "cannon-v4",
+      "name": "Cannon",
+      "type": "cannon",
+      "symbol": "cannon",
+      "value": 4,
+      "image": null,
+      "ability": "cannon"
+    },
+    {
+      "id": "cannon-v5",
+      "name": "Cannon",
+      "type": "cannon",
+      "symbol": "cannon",
+      "value": 5,
+      "image": null,
+      "ability": "cannon"
+    },
+    {
+      "id": "cannon-v6",
+      "name": "Cannon",
+      "type": "cannon",
+      "symbol": "cannon",
+      "value": 6,
+      "image": null,
+      "ability": "cannon"
+    },
+    {
+      "id": "cannon-v7",
+      "name": "Cannon",
+      "type": "cannon",
+      "symbol": "cannon",
+      "value": 7,
+      "image": null,
+      "ability": "cannon"
+    },
+    {
+      "id": "captainShield-v2",
+      "name": "Captain Shield",
+      "type": "captainShield",
+      "symbol": "captainShield",
+      "value": 2,
+      "image": null,
+      "ability": "captainShield"
+    },
+    {
+      "id": "captainShield-v3",
+      "name": "Captain Shield",
+      "type": "captainShield",
+      "symbol": "captainShield",
+      "value": 3,
+      "image": null,
+      "ability": "captainShield"
+    },
+    {
+      "id": "captainShield-v4",
+      "name": "Captain Shield",
+      "type": "captainShield",
+      "symbol": "captainShield",
+      "value": 4,
+      "image": null,
+      "ability": "captainShield"
+    },
+    {
+      "id": "captainShield-v5",
+      "name": "Captain Shield",
+      "type": "captainShield",
+      "symbol": "captainShield",
+      "value": 5,
+      "image": null,
+      "ability": "captainShield"
+    },
+    {
+      "id": "captainShield-v6",
+      "name": "Captain Shield",
+      "type": "captainShield",
+      "symbol": "captainShield",
+      "value": 6,
+      "image": null,
+      "ability": "captainShield"
+    },
+    {
+      "id": "captainShield-v7",
+      "name": "Captain Shield",
+      "type": "captainShield",
+      "symbol": "captainShield",
+      "value": 7,
+      "image": null,
+      "ability": "captainShield"
+    },
+    {
+      "id": "pirateDagger-v2",
+      "name": "Pirate Dagger",
+      "type": "pirateDagger",
+      "symbol": "pirateDagger",
+      "value": 2,
+      "image": null,
+      "ability": "pirateDagger"
+    },
+    {
+      "id": "pirateDagger-v3",
+      "name": "Pirate Dagger",
+      "type": "pirateDagger",
+      "symbol": "pirateDagger",
+      "value": 3,
+      "image": null,
+      "ability": "pirateDagger"
+    },
+    {
+      "id": "pirateDagger-v4",
+      "name": "Pirate Dagger",
+      "type": "pirateDagger",
+      "symbol": "pirateDagger",
+      "value": 4,
+      "image": null,
+      "ability": "pirateDagger"
+    },
+    {
+      "id": "pirateDagger-v5",
+      "name": "Pirate Dagger",
+      "type": "pirateDagger",
+      "symbol": "pirateDagger",
+      "value": 5,
+      "image": null,
+      "ability": "pirateDagger"
+    },
+    {
+      "id": "pirateDagger-v6",
+      "name": "Pirate Dagger",
+      "type": "pirateDagger",
+      "symbol": "pirateDagger",
+      "value": 6,
+      "image": null,
+      "ability": "pirateDagger"
+    },
+    {
+      "id": "pirateDagger-v7",
+      "name": "Pirate Dagger",
+      "type": "pirateDagger",
+      "symbol": "pirateDagger",
+      "value": 7,
+      "image": null,
+      "ability": "pirateDagger"
+    },
+    {
+      "id": "luckyAnchor-v2",
+      "name": "Lucky Anchor",
+      "type": "luckyAnchor",
+      "symbol": "luckyAnchor",
+      "value": 2,
+      "image": null,
+      "ability": "luckyAnchor"
+    },
+    {
+      "id": "luckyAnchor-v3",
+      "name": "Lucky Anchor",
+      "type": "luckyAnchor",
+      "symbol": "luckyAnchor",
+      "value": 3,
+      "image": null,
+      "ability": "luckyAnchor"
+    },
+    {
+      "id": "luckyAnchor-v4",
+      "name": "Lucky Anchor",
+      "type": "luckyAnchor",
+      "symbol": "luckyAnchor",
+      "value": 4,
+      "image": null,
+      "ability": "luckyAnchor"
+    },
+    {
+      "id": "luckyAnchor-v5",
+      "name": "Lucky Anchor",
+      "type": "luckyAnchor",
+      "symbol": "luckyAnchor",
+      "value": 5,
+      "image": null,
+      "ability": "luckyAnchor"
+    },
+    {
+      "id": "luckyAnchor-v6",
+      "name": "Lucky Anchor",
+      "type": "luckyAnchor",
+      "symbol": "luckyAnchor",
+      "value": 6,
+      "image": null,
+      "ability": "luckyAnchor"
+    },
+    {
+      "id": "luckyAnchor-v7",
+      "name": "Lucky Anchor",
+      "type": "luckyAnchor",
+      "symbol": "luckyAnchor",
+      "value": 7,
+      "image": null,
+      "ability": "luckyAnchor"
+    },
+    {
+      "id": "seaSerpent-v2",
+      "name": "Sea Serpent",
+      "type": "seaSerpent",
+      "symbol": "seaSerpent",
+      "value": 2,
+      "image": null,
+      "ability": "seaSerpent"
+    },
+    {
+      "id": "seaSerpent-v3",
+      "name": "Sea Serpent",
+      "type": "seaSerpent",
+      "symbol": "seaSerpent",
+      "value": 3,
+      "image": null,
+      "ability": "seaSerpent"
+    },
+    {
+      "id": "seaSerpent-v4",
+      "name": "Sea Serpent",
+      "type": "seaSerpent",
+      "symbol": "seaSerpent",
+      "value": 4,
+      "image": null,
+      "ability": "seaSerpent"
+    },
+    {
+      "id": "seaSerpent-v5",
+      "name": "Sea Serpent",
+      "type": "seaSerpent",
+      "symbol": "seaSerpent",
+      "value": 5,
+      "image": null,
+      "ability": "seaSerpent"
+    },
+    {
+      "id": "seaSerpent-v6",
+      "name": "Sea Serpent",
+      "type": "seaSerpent",
+      "symbol": "seaSerpent",
+      "value": 6,
+      "image": null,
+      "ability": "seaSerpent"
+    },
+    {
+      "id": "seaSerpent-v7",
+      "name": "Sea Serpent",
+      "type": "seaSerpent",
+      "symbol": "seaSerpent",
+      "value": 7,
+      "image": null,
+      "ability": "seaSerpent"
+    },
+    {
+      "id": "treasureMap-v2",
+      "name": "Treasure Map",
+      "type": "treasureMap",
+      "symbol": "treasureMap",
+      "value": 2,
+      "image": null,
+      "ability": "treasureMap"
+    },
+    {
+      "id": "treasureMap-v3",
+      "name": "Treasure Map",
+      "type": "treasureMap",
+      "symbol": "treasureMap",
+      "value": 3,
+      "image": null,
+      "ability": "treasureMap"
+    },
+    {
+      "id": "treasureMap-v4",
+      "name": "Treasure Map",
+      "type": "treasureMap",
+      "symbol": "treasureMap",
+      "value": 4,
+      "image": null,
+      "ability": "treasureMap"
+    },
+    {
+      "id": "treasureMap-v5",
+      "name": "Treasure Map",
+      "type": "treasureMap",
+      "symbol": "treasureMap",
+      "value": 5,
+      "image": null,
+      "ability": "treasureMap"
+    },
+    {
+      "id": "treasureMap-v6",
+      "name": "Treasure Map",
+      "type": "treasureMap",
+      "symbol": "treasureMap",
+      "value": 6,
+      "image": null,
+      "ability": "treasureMap"
+    },
+    {
+      "id": "treasureMap-v7",
+      "name": "Treasure Map",
+      "type": "treasureMap",
+      "symbol": "treasureMap",
+      "value": 7,
+      "image": null,
+      "ability": "treasureMap"
+    },
+    {
+      "id": "treasureChest-v2",
+      "name": "Treasure Chest",
+      "type": "treasureChest",
+      "symbol": "treasureChest",
+      "value": 2,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "treasureChest-v3",
+      "name": "Treasure Chest",
+      "type": "treasureChest",
+      "symbol": "treasureChest",
+      "value": 3,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "treasureChest-v4",
+      "name": "Treasure Chest",
+      "type": "treasureChest",
+      "symbol": "treasureChest",
+      "value": 4,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "treasureChest-v5",
+      "name": "Treasure Chest",
+      "type": "treasureChest",
+      "symbol": "treasureChest",
+      "value": 5,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "treasureChest-v6",
+      "name": "Treasure Chest",
+      "type": "treasureChest",
+      "symbol": "treasureChest",
+      "value": 6,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "treasureChest-v7",
+      "name": "Treasure Chest",
+      "type": "treasureChest",
+      "symbol": "treasureChest",
+      "value": 7,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "goldenKey-v2",
+      "name": "Golden Key",
+      "type": "goldenKey",
+      "symbol": "goldenKey",
+      "value": 2,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "goldenKey-v3",
+      "name": "Golden Key",
+      "type": "goldenKey",
+      "symbol": "goldenKey",
+      "value": 3,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "goldenKey-v4",
+      "name": "Golden Key",
+      "type": "goldenKey",
+      "symbol": "goldenKey",
+      "value": 4,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "goldenKey-v5",
+      "name": "Golden Key",
+      "type": "goldenKey",
+      "symbol": "goldenKey",
+      "value": 5,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "goldenKey-v6",
+      "name": "Golden Key",
+      "type": "goldenKey",
+      "symbol": "goldenKey",
+      "value": 6,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    },
+    {
+      "id": "goldenKey-v7",
+      "name": "Golden Key",
+      "type": "goldenKey",
+      "symbol": "goldenKey",
+      "value": 7,
+      "image": null,
+      "ability": "treasureChestGoldenKey"
+    }
+  ]
 }

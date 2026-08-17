@@ -10,5 +10,6 @@
 - [`design/ui-ux-inspiration.md`](design/ui-ux-inspiration.md) — reference games for UI/UX decisions.
 - [`phases/roadmap.md`](phases/roadmap.md) — all 25 phases at a glance.
 - [`phases/mvp-roadmap.md`](phases/mvp-roadmap.md) — گیم‌پلی-محور، ترتیب‌بندی‌شده برای رسیدن به MVP دوزبانه.
+- [`phases/mvp-progress.md`](phases/mvp-progress.md) — وضعیت اجرای هر Prompt.
 - [`prompts/`](prompts/README.md) — Promptهای اجرایی هر فاز MVP.
 - [`phases/phase-0-foundation.md`](phases/phase-0-foundation.md) — current phase checklist.

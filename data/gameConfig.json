@@ -1,5 +1,5 @@
 {
-  "_comment": "Finalized in Phase 1 (Data Architecture). Values below are placeholders reflecting confirmed decisions in GDD §31.",
+  "_comment": "Finalized in Phase 1 (Data Architecture) — Prompt 001. Deck composition below is now verified against the actual data/cards.json (60 cards, generated and asserted in Prompt 001), not just a placeholder.",
   "deck": {
     "totalCards": 60,
     "goldCoin": {
@@ -10,12 +10,35 @@
     "otherTypes": {
       "count": 9,
       "valueRange": [2, 7],
-      "cardsPerType": 6
+      "cardsPerType": 6,
+      "typeKeys": [
+        "compass",
+        "cannon",
+        "captainShield",
+        "pirateDagger",
+        "luckyAnchor",
+        "seaSerpent",
+        "treasureMap",
+        "treasureChest",
+        "goldenKey"
+      ]
     }
   },
   "initialLostLoot": {
     "totalCards": 10,
-    "rule": "one value-2 card from each of the 9 non-Gold-Coin types, plus one Gold Coin value-4 card"
+    "rule": "one value-2 card from each of the 9 non-Gold-Coin types, plus one Gold Coin value-4 card",
+    "cardIds": [
+      "cannon-v2",
+      "captainShield-v2",
+      "compass-v2",
+      "goldCoin-v4",
+      "goldenKey-v2",
+      "luckyAnchor-v2",
+      "pirateDagger-v2",
+      "seaSerpent-v2",
+      "treasureChest-v2",
+      "treasureMap-v2"
+    ]
   },
   "initialTreasureDeck": {
     "totalCards": 50

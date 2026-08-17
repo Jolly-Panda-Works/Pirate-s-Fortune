@@ -1,12 +1,12 @@
 {
   "name": "treasure-raiders",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Push-your-luck pirate treasure card game. Web first, Unity later.",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "npx serve .",
-    "test": "echo \"No test runner wired yet - Phase 22\" && exit 0"
+    "test": "node --test --test-reporter=tap tests/**/*.test.js"
   },
   "license": "UNLICENSED"
 }
