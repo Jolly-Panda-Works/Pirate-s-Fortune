@@ -7,6 +7,24 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.3.0] - MVP roadmap & implementation prompts
+
+### Added
+- `docs/phases/mvp-roadmap.md` — GDD's 25 phases regrouped into 4 build
+  stages (Core Engine → Minimal UI → Bilingual/Responsive → Feel/Release),
+  reordered so gameplay is complete and tested before any UI work, per
+  project instruction ("gameplay first, then everything else").
+- `docs/prompts/` — 23 self-contained implementation prompts (one per GDD
+  phase in MVP scope), each with target files, constraints, and exit
+  criteria: `stage-a-core-engine.md`, `stage-b-minimal-ui.md`,
+  `stage-c-bilingual.md`, `stage-d-feel-and-release.md`, plus an index
+  README.
+- README.md — new "MVP roadmap" section linking the above.
+
+### Scope notes
+- Post-MVP abilities (Phase 10b) and the Unity port (Phase 24) are
+  explicitly excluded from this roadmap, per GDD §15's MVP definition.
+
 ## [0.2.0] - Phase 0 (foundation, standards pass)
 
 ### Added

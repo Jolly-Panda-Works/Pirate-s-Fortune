@@ -38,6 +38,15 @@ Then open the printed local URL in a browser.
   /tests                unit, integration, scenarios
 ```
 
+## MVP roadmap (gameplay-first)
+
+Development for this project follows [`docs/phases/mvp-roadmap.md`](docs/phases/mvp-roadmap.md),
+not the raw 25-phase order in the GDD: the gameplay engine (Stage A) is
+built and fully tested headless, before any UI (Stage B), before
+bilingual/responsive support (Stage C, required — the game ships in
+Persian and English), before feel/release polish (Stage D). Executable
+prompts for every phase live in [`docs/prompts/`](docs/prompts/README.md).
+
 ## Development rules
 
 This project follows 20 mandatory rules throughout development — engine

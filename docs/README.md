@@ -9,4 +9,6 @@
 - [`architecture/data-driven-design.md`](architecture/data-driven-design.md) — data files inventory and the emoji→image icon-swap system.
 - [`design/ui-ux-inspiration.md`](design/ui-ux-inspiration.md) — reference games for UI/UX decisions.
 - [`phases/roadmap.md`](phases/roadmap.md) — all 25 phases at a glance.
+- [`phases/mvp-roadmap.md`](phases/mvp-roadmap.md) — گیم‌پلی-محور، ترتیب‌بندی‌شده برای رسیدن به MVP دوزبانه.
+- [`prompts/`](prompts/README.md) — Promptهای اجرایی هر فاز MVP.
 - [`phases/phase-0-foundation.md`](phases/phase-0-foundation.md) — current phase checklist.
