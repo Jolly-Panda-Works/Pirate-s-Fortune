@@ -74,27 +74,40 @@ clicks only, reach a correct scoring result.
 **Phase:** 14 · **Files:** `js/modalManager.js`, `css/modal.css`
 
 ```
-Implement js/modalManager.js — target/ability selection UI, needed
-specifically for:
-- Cannon (Prompt 010): select one eligible rival card to destroy. Replace
-  the Prompt-010 placeholder (context.targetCardId passed directly) with
-  a real modal flow: abilityResolver requests a target via modalManager,
-  modalManager renders eligible targets into #modal-root, resolves a
-  promise/callback with the player's choice, resolver continues.
-- Compass (Prompt 010): the PLAYER_CHOICE step (Return to Ship / Explore
-  Further after the preview) uses this same modal system rather than the
-  generic turn-decision buttons, since it's a distinct decision point with
-  its own context (the previewed card must be shown in the modal).
-- Modal is rendered into #modal-root only; uiManager's zone rendering is
-  untouched by modal state (separation of concerns, rule 5).
-- Style via css/modal.css (basic overlay + centered panel is enough for
-  MVP — polish arrives in Stage D).
+Implement js/modalManager.js — target/ability selection UI. All ability
+targeting/selection built as handler-parameters in Stage A (Prompts 010 /
+010b) now gets a real UI here, for every ability that needs player input:
 
-Deliverable: js/modalManager.js implemented; Cannon and Compass flows
-updated to go through it instead of their Stage-A placeholders.
+- Cannon: select one eligible rival card to destroy.
+- Compass: the PLAYER_CHOICE step after the preview (Return to Ship /
+  Explore Further), shown with the previewed card visible in the modal.
+- Pirate Dagger: select a rival, then a card from that rival's Ship Cargo.
+- Lucky Anchor: select a card from the current player's own Ship Cargo.
+- Treasure Map: select an eligible card from Lost Loot (disabled/empty
+  state if Lost Loot has nothing eligible — must match the graceful
+  degrade behavior built in Prompt 010b, never show a broken empty modal).
+- Sea Serpent and Treasure Chest + Golden Key need NO modal — they resolve
+  automatically (forced reveal / random draw respectively, per GDD
+  §14.6/§14.8) — surface their effect through uiManager's normal event
+  rendering instead.
 
-Exit criteria: manual playtest — a game that includes Cannon and Compass
-draws is fully playable via the modal, no console intervention needed.
+Flow for every targeted ability: abilityResolver requests a target via
+modalManager, modalManager renders eligible options into #modal-root,
+resolves a promise/callback with the player's choice, resolver continues
+through the Resolution Queue exactly as it does for an AI's deterministic
+choice (Prompt 015) — same code path, different input source.
+Modal is rendered into #modal-root only; uiManager's zone rendering is
+untouched by modal state (separation of concerns, rule 5).
+Style via css/modal.css (basic overlay + centered panel is enough for
+MVP — polish arrives in Stage D).
+
+Deliverable: js/modalManager.js implemented; Cannon, Compass, Dagger,
+Anchor, and Map flows all updated to go through it instead of their
+Stage-A handler-parameter placeholders.
+
+Exit criteria: manual playtest — a game that includes every one of the 8
+abilities is fully playable via modals/automatic resolution, no console
+intervention needed for any of them.
 ```
 
 ---
@@ -115,10 +128,11 @@ Implement js/playerManager.js with the MVP threshold AI from GDD §15:
 - Replace the Prompt-005 placeholder decision function with this one,
   called automatically by turnManager when the current player has
   isAI = true — no human input, no modal pause for AI turns (except where
-  an AI must resolve a targeted ability like Cannon: pick the first
-  eligible target deterministically for MVP, no smart targeting yet, per
-  GDD §17 "prioritize legal and stable behavior over sophisticated
-  balancing" for the first implementation).
+  an AI must resolve a targeted ability like Cannon, Pirate Dagger, Lucky
+  Anchor, or Treasure Map: pick the first eligible target deterministically
+  for MVP, no smart targeting yet, per GDD §17 "prioritize legal and
+  stable behavior over sophisticated balancing" for the first
+  implementation).
 - AI turns should still emit the same events as human turns (so uiManager
   renders them identically, just without waiting on input) — add a short
   artificial delay between AI actions ONLY at the UI layer (not inside

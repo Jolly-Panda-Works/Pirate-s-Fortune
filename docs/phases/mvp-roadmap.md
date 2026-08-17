@@ -10,14 +10,20 @@
 
 | Stage | محتوا | خروجی قابل تست |
 |---|---|---|
-| **A — Core Gameplay Engine** | فازهای ۱ تا ۱۰a (+ بخشی از ۱۱) | بازی کامل از طریق کنسول/تست قابل اجراست، بدون هیچ UI |
+| **A — Core Gameplay Engine** | فازهای ۱ تا ۹، ۱۰a، ۱۰b، ۱۱ (کامل) | بازی کامل با **همه‌ی ۸ قابلیت کارت** از طریق کنسول/تست قابل اجراست، بدون هیچ UI |
 | **B — Minimal Playable UI** | فازهای ۱۲، ۱۳، ۱۴، ۱۹ | بازی در مرورگر با آیکون/ایموجی قابل‌بازی است (فقط انگلیسی) |
 | **C — Bilingual & Responsive** | فازهای ۱۵، ۱۶ | بازی دوزبانه (fa/en)، RTL، ریسپانسیو |
 | **D — Feel & Release** | فازهای ۱۷، ۱۸، ۲۰، ۲۱، ۲۲، ۲۳ | نسخه‌ی نهایی MVP آماده‌ی انتشار وب |
 
-**خارج از MVP** (طبق GDD §15، عمداً حذف/به‌تعویق‌افتاده):
-- Phase 10b — Post-MVP Abilities (Dagger, Anchor, Sea Serpent, Map, Chest+Key)
-- Phase 24 — Unity Port
+> **تغییر نسبت به نسخه‌ی قبلی این سند:** قابلیت‌های کارت (ability) جزو هسته‌ی
+> گیم‌پلی هستند، نه یک لایه‌ی جانبی. بنابراین Phase 10b (Pirate Dagger, Lucky
+> Anchor, Sea Serpent, Treasure Map, Treasure Chest+Golden Key) دیگر «Post-MVP»
+> و بیرون از roadmap نیست — همراه با Phase 10a در Stage A و قبل از هر UI
+> پیاده و تست می‌شود. تنها موردی که واقعاً بیرون از این MVP می‌ماند، Unity Port
+> (Phase 24) است، چون هدف فعلی صریحاً نسخه‌ی وب است.
+
+**خارج از این roadmap:**
+- Phase 24 — Unity Port (بعد از تکمیل کامل نسخه‌ی وب)
 
 ---
 
@@ -38,8 +44,9 @@
 | 7 | Collection | [007](prompts/stage-a-core-engine.md#prompt-007) |
 | 8 | Scoring | [008](prompts/stage-a-core-engine.md#prompt-008) |
 | 9 | Ability Framework | [009](prompts/stage-a-core-engine.md#prompt-009) |
-| 10a | MVP Abilities (Compass, Cannon, Captain Shield) | [010](prompts/stage-a-core-engine.md#prompt-010) |
-| 11 (light) | Ability chain tests (فقط برای Compass/Cannon/Shield) | [011](prompts/stage-a-core-engine.md#prompt-011) |
+| 10a | Single-Resolution Abilities (Compass, Cannon, Captain Shield) | [010](prompts/stage-a-core-engine.md#prompt-010) |
+| 10b | Chain Abilities (Pirate Dagger, Lucky Anchor, Sea Serpent, Treasure Map, Treasure Chest+Golden Key) | [010b](prompts/stage-a-core-engine.md#prompt-010b) |
+| 11 (full) | Ability chain integration tests — همه‌ی ۸ قابلیت | [011](prompts/stage-a-core-engine.md#prompt-011) |
 
 ## Stage B — Minimal Playable UI
 
@@ -50,7 +57,7 @@
 |---|---|---|
 | 12 | UI (board rendering) | [012](prompts/stage-b-minimal-ui.md#prompt-012) |
 | 13 | Card Interaction | [013](prompts/stage-b-minimal-ui.md#prompt-013) |
-| 14 | Modal System (لازم برای Cannon/Compass) | [014](prompts/stage-b-minimal-ui.md#prompt-014) |
+| 14 | Modal System (لازم برای Cannon, Compass, Dagger, Anchor, Map — Sea Serpent/Chest+Key خودکار هستند) | [014](prompts/stage-b-minimal-ui.md#prompt-014) |
 | 19 | AI (basic threshold AI طبق GDD §15) | [015](prompts/stage-b-minimal-ui.md#prompt-015) |
 
 ## Stage C — Bilingual & Responsive

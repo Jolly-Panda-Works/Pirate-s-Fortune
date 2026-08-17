@@ -22,8 +22,10 @@ strictly separate from game logic (GDD §22):
   acknowledge within a reasonable timeout (e.g. 2s), proceed anyway —
   animation failure must never permanently deadlock the game.
 - Cover at minimum: card reveal, Shipwreck, collection (Return to Ship),
-  and each MVP ability's trigger moment (Compass preview, Cannon
-  destroy, Captain Shield protect).
+  and each of the 8 abilities' trigger moments (Compass preview, Cannon
+  destroy, Captain Shield protect, Pirate Dagger steal, Lucky Anchor
+  replay, Sea Serpent forced-reveal chain, Treasure Map selection,
+  Treasure Chest+Golden Key draw).
 - css/animations.css holds the actual keyframes/transitions;
   animationManager.js only triggers/sequences them and listens for
   their completion (via `transitionend`/`animationend` or the timeout).
@@ -105,10 +107,12 @@ UX pass across everything built so far. Concretely:
   Slay-the-Spire-style safe/danger card language, Hearthstone-style
   opponent compression) against the actual implementation; fix the
   biggest gaps first.
-- Edge cases: empty Lost Loot interactions (GDD §29.6 — Treasure Map/Chest
-  are post-MVP so this mainly means graceful handling if any MVP ability
-  ever queries Lost Loot), Treasure Deck reaching exactly 0 mid-reveal,
-  a player with an empty Ship Cargo at scoring time.
+- Edge cases: empty Lost Loot interactions (GDD §29.6 — Treasure Map and
+  Treasure Chest+Golden Key both query Lost Loot and must already degrade
+  gracefully per Prompt 010b; re-verify here under real UI conditions,
+  not just unit tests), Treasure Deck reaching exactly 0 mid-reveal
+  (including mid Sea Serpent chain), a player with an empty Ship Cargo at
+  scoring time.
 - Stability pass: no uncaught exceptions across a batch of full playthroughs
   (see Prompt 022's AI-simulation output for this).
 
@@ -181,6 +185,7 @@ game is playable end-to-end bilingually on desktop and mobile-landscape,
 and the build is deployed (or deploy-ready) as a static site.
 
 Post-MVP (explicitly out of scope here, see docs/phases/mvp-roadmap.md):
-Phase 10b (Pirate Dagger, Lucky Anchor, Sea Serpent, Treasure Map,
-Treasure Chest+Golden Key) and Phase 24 (Unity Port).
+Phase 24 (Unity Port) only — all 8 card abilities are already implemented
+and tested as part of Stage A (Prompts 010/010b/011), since abilities are
+core gameplay, not a deferred layer.
 ```

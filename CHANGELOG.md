@@ -7,6 +7,28 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.4.0] - Card abilities moved into core gameplay scope
+
+### Changed
+- Card abilities are core gameplay, not a deferred/optional layer (user
+  instruction). Phase 10b (Pirate Dagger, Lucky Anchor, Sea Serpent,
+  Treasure Map, Treasure Chest+Golden Key) is no longer "post-MVP" — it's
+  merged into Stage A alongside Phase 10a, before any UI work.
+- `docs/phases/mvp-roadmap.md`: Stage A now covers all 8 abilities; only
+  Phase 24 (Unity Port) remains outside this roadmap.
+- `docs/prompts/stage-a-core-engine.md`: split old "Prompt 010 — MVP
+  Abilities" into `Prompt 010` (single-resolution: Compass, Cannon,
+  Captain Shield) and new `Prompt 010b` (chain abilities: Dagger, Anchor,
+  Sea Serpent, Map, Chest+Key). `Prompt 011` is now full-scope ability
+  chain integration testing (all 8), not an MVP-trimmed subset.
+- `docs/prompts/stage-b-minimal-ui.md` (Prompt 014), `stage-c-bilingual.md`
+  (Prompt 016), `stage-d-feel-and-release.md` (Prompts 018, 021, 023):
+  updated to cover targeting/localization/animation/polish for all 8
+  abilities instead of the 3 originally-MVP ones.
+- `data/gameConfig.json`: replaced `mvpAbilities`/`postMvpAbilities` with
+  `abilities.singleResolution` / `abilities.chain` — the split now reflects
+  the Resolution Queue implementation detail, not build/release order.
+
 ## [0.3.0] - MVP roadmap & implementation prompts
 
 ### Added

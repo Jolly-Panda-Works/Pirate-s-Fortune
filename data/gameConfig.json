@@ -27,14 +27,17 @@
   "session": {
     "targetMinutes": [10, 20]
   },
-  "mvpAbilities": ["compass", "cannon", "captainShield"],
-  "postMvpAbilities": [
-    "pirateDagger",
-    "luckyAnchor",
-    "seaSerpent",
-    "treasureMap",
-    "treasureChestGoldenKey"
-  ],
+  "abilities": {
+    "_comment": "All abilities are implemented together in Stage A (see docs/phases/mvp-roadmap.md) - card abilities are core gameplay, not a deferred layer. The single/chain split below reflects the Resolution Queue implementation detail (GDD §12/§13), not build order.",
+    "singleResolution": ["compass", "cannon", "captainShield"],
+    "chain": [
+      "pirateDagger",
+      "luckyAnchor",
+      "seaSerpent",
+      "treasureMap",
+      "treasureChestGoldenKey"
+    ]
+  },
   "assets": {
     "_comment": "Controls how card/UI icons resolve. See data/iconMap.json and js/iconManager.js. Switching 'emoji' -> 'image' requires editing data only, never code (data-driven rule, GDD §2.3).",
     "iconMode": "emoji"

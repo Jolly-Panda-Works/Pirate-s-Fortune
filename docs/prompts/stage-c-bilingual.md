@@ -32,9 +32,10 @@ Expand data/localization.json:
   English string with a `t('key')` call, adding the matching key to both
   `en` and `fa` blocks (never leave a key in only one language).
 - Keys needed at minimum: all zone labels, both action buttons, all
-  ability names/descriptions used in the Compass/Cannon/Shield modals,
-  Shipwreck/scoring messages, win/tie messages, the orientation-gate
-  string already present.
+  ability names/descriptions used across all 8 abilities' modals (Compass,
+  Cannon, Captain Shield, Pirate Dagger, Lucky Anchor, Sea Serpent,
+  Treasure Map, Treasure Chest+Golden Key), Shipwreck/scoring messages,
+  win/tie messages, the orientation-gate string already present.
 - Card artwork stays language-neutral and must not embed text (GDD §20)
   — this only affects data/iconMap.json's `image` field later, not this
   prompt.

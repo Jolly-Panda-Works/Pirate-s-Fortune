@@ -292,18 +292,15 @@ Exit criteria: tests pass.
 
 ---
 
-## Prompt 010 — MVP Abilities
+## Prompt 010 — Single-Resolution Abilities
 
-**Phase:** 10a · **Files:** `js/abilityManager.js` registrations (new small
-files are fine if it keeps things organized, e.g. `js/abilities/compass.js`,
-`js/abilities/cannon.js`, `js/abilities/captainShield.js` — but each must be
-registered through abilityManager, never referenced by name elsewhere)
+**Phase:** 10a · **Files:** `js/abilities/compass.js`, `js/abilities/cannon.js`, `js/abilities/captainShield.js` (each registered through `abilityManager`, never referenced by name elsewhere)
 
 ```
-Implement the three MVP abilities per GDD §14.1-14.3, each registered via
-abilityManager.registerAbility(key, handler) — key must match the ability
-value used in data/cards.json (Prompt 001), never a hard-coded name check
-anywhere else.
+Implement the three single-resolution abilities per GDD §14.1-14.3, each
+registered via abilityManager.registerAbility(key, handler) — key must
+match the ability value used in data/cards.json (Prompt 001), never a
+hard-coded name check anywhere else.
 
 Compass (§14.1): mandatory preview flow.
   COMPASS_REVEALED -> peek top card of Treasure Deck -> emit a "preview"
@@ -324,43 +321,120 @@ Captain Shield (§14.3): retroactive protection, single-resolution (not a
   detection beyond its specific documented effect.
 
 Deliverable: three ability handlers implemented and registered.
-Add tests/integration/mvp-abilities.test.js covering all three, including
-the Captain Shield edge cases listed above and the Compass "exact card,
-not replaced" guarantee.
+Add tests/integration/single-resolution-abilities.test.js covering all
+three, including the Captain Shield edge cases listed above and the
+Compass "exact card, not replaced" guarantee.
 
-Exit criteria: tests pass; MVP ability list in gameConfig.json
-(mvpAbilities: compass, cannon, captainShield) matches exactly what's
-registered.
+Exit criteria: tests pass; the "goldCoin/compass/cannon/captainShield"
+entries in data/cards.json all resolve correctly end-to-end, matching
+gameConfig.json's abilities.singleResolution list.
 ```
 
 ---
 
-## Prompt 011 — Ability Chain Tests (MVP scope)
+## Prompt 010b — Chain Abilities
 
-**Phase:** 11 (scoped to MVP abilities only — full chain testing for
-post-MVP abilities like Sea Serpent/Dagger/Anchor is deferred with Phase
-10b, outside this roadmap)
+**Phase:** 10b · **Files:** `js/abilities/pirateDagger.js`, `js/abilities/luckyAnchor.js`, `js/abilities/seaSerpent.js`, `js/abilities/treasureMap.js`, `js/abilities/treasureChestGoldenKey.js`
 
 ```
-Add integration tests that exercise Compass/Cannon/Captain Shield inside
-full game scenarios (not isolated unit calls):
-- A full game where Compass is explored into (previewed card must be
-  exactly the next reveal, verified end-to-end).
-- A full game where Cannon destroys a rival's expedition card and the
-  rival's subsequent state is correct.
-- A full game where Captain Shield is the first card of an expedition
-  (protects nothing) vs. a later card (protects as designed).
-- Confirm the Resolution Queue from Prompt 009 handles these three
-  abilities without ever recursing (reuse the call-depth assertion
-  pattern from Prompt 009's tests).
+Card abilities are core gameplay, not a deferred/optional layer — implement
+all five remaining abilities now, in Stage A, before any UI work, per
+GDD §14.4-14.8. Every one of these MUST go through the Resolution Queue
+built in Prompt 009 — none of them may call abilityResolver recursively
+(rule 10).
 
-Deliverable: tests/integration/ability-chains-mvp.test.js.
+Pirate Dagger (§14.4): steals a card from another player's Ship Cargo and
+  introduces it into the current expedition/resolution flow via the
+  Resolution Queue. If the stolen card creates a duplicate when it enters
+  the Expedition Area, the normal Card Resolution Order applies in full:
+  displayed, duplicate detected, its own ability does NOT execute,
+  Shipwreck occurs. Target selection (which rival, which card) is accepted
+  as a handler parameter for now (real modal UI in Prompt 014).
+
+Lucky Anchor (§14.5): replays a card from the current player's own Ship
+  Cargo into the current resolution flow via the Resolution Queue. The
+  replayed card can itself cause a duplicate and trigger further
+  resolution — same Card Resolution Order guarantees as Dagger above.
+
+Sea Serpent (§14.6): the highest-complexity ability — forces additional
+  card reveals. Forced reveals must: enter the Expedition Area normally,
+  be displayed before duplicate detection, follow the complete Card
+  Resolution Order, and be able to trigger further abilities including
+  ANOTHER Sea Serpent. A Sea Serpent that generates another Sea Serpent
+  must extend the Resolution Queue, never recurse — write a test that
+  specifically proves this (see below).
+
+Treasure Map (§14.7): lets the player search/select an eligible card from
+  Lost Loot; the selected card enters the normal resolution pipeline via
+  the queue. If Lost Loot is empty or has no valid card, degrade
+  gracefully — return a no-op, do not throw, do not produce an illegal
+  state (GDD §29.6). Target selection is a handler parameter for now.
+
+Treasure Chest + Golden Key (§14.8): triggers on Return to Ship rather
+  than normal reveal resolution — hook it into collectManager.js's
+  returnToShip flow, not burnManager/turnManager's reveal path. Per the
+  GDD's current recommendation, draw is RANDOM from Lost Loot (not player
+  choice — this is what distinguishes it from Treasure Map). Must also
+  degrade gracefully on an empty Lost Loot (GDD §29.6).
+
+Deliverable: all five handlers implemented and registered under their
+ability keys from data/cards.json.
+Add tests/integration/chain-abilities.test.js covering: a Dagger-stolen
+card that turns out to be a duplicate (verify its ability does NOT
+execute), a Sea Serpent chain that generates a second Sea Serpent (assert
+via a call-depth counter that the resolver never recurses — reuse the
+pattern from Prompt 009's tests), a Treasure Map pick with Lost Loot
+empty (must no-op, not throw), and a Chest+Key draw with Lost Loot empty
+(same).
+
+Exit criteria: tests pass; every ability key referenced in data/cards.json
+is now registered — no ability key in the data resolves to "unregistered".
+```
+
+---
+
+## Prompt 011 — Full Ability Chain Integration Tests
+
+**Phase:** 11 · **Scope:** all 8 card abilities — this is now the full-scope
+chain-testing phase, not a trimmed MVP subset, since every ability is core
+gameplay.
+
+```
+Add integration tests that exercise ALL EIGHT abilities inside full game
+scenarios (not isolated unit calls):
+- Compass explored into (previewed card must be exactly the next reveal,
+  verified end-to-end).
+- Cannon destroys a rival's expedition card; the rival's subsequent state
+  is correct.
+- Captain Shield as the first card of an expedition (protects nothing) vs.
+  a later card (protects as designed).
+- Pirate Dagger steals a rival's cargo card into the current resolution
+  flow, including the case where the stolen card is a duplicate.
+- Lucky Anchor replays a card from the player's own cargo, including the
+  case where the replayed card triggers a further ability.
+- Sea Serpent forces a chain of reveals, including a Sea Serpent that
+  generates another Sea Serpent (three or more deep) — assert the
+  Resolution Queue never recurses (call-depth counter never exceeds 1)
+  and every forced reveal follows the full Card Resolution Order.
+- Treasure Map selects a card from Lost Loot, including the empty-Lost-Loot
+  degrade-gracefully case.
+- Treasure Chest + Golden Key fires on Return to Ship and draws randomly
+  from Lost Loot, including the empty-Lost-Loot case.
+- A combined scenario: a Dagger steal that triggers a Sea Serpent that
+  triggers a second Dagger — confirms the queue handles mixed ability
+  chains, not just same-ability chains.
+
+Deliverable: tests/integration/ability-chains.test.js (all 8 abilities).
 
 Exit criteria — Stage A complete when:
-- A full, unscripted-decision-but-deterministic-deck 2-4 player game can
-  run start to finish (tests/scenarios/) producing a correct winner.
+- A full, unscripted-decision-but-deterministic-deck 2-4 player game,
+  exercising every one of the 8 abilities at least once across the test
+  suite, runs start to finish (tests/scenarios/) producing a correct
+  winner.
 - Every test file in tests/unit and tests/integration passes.
 - No file in js/ imports anything DOM-related.
+- No ability key in data/cards.json is unregistered (checked in Prompt
+  010b's tests).
 This is the point to bump the project version (MINOR — new gameplay
 systems) and deliver a zip with commit message, per project standards.
 ```
