@@ -23,6 +23,7 @@ happen through `gameManager.js`'s public API (GDD §6.1).
 | `animationManager.js` | Gameplay animation coordination | Phase 17 |
 | `saveManager.js` | `GameState` serialization/restoration | Phase 20 |
 | `logger.js` | Tagged diagnostic logging | Phase 0 (done) |
+| `iconManager.js` | Resolves iconKey → emoji/image per `assets.iconMode` (data-driven icon swap) | Phase 0 (resolver done; data loading wired in Phase 1) |
 
 ## Data flow
 

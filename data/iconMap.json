@@ -1,0 +1,26 @@
+{
+  "_comment": "One entry per iconKey. 'emoji' is used while gameConfig.assets.iconMode = 'emoji'. 'image' (a path under /assets) is used while iconMode = 'image'. Both can be filled in at once; only iconMode decides which one renders. Adding real artwork later means filling in 'image' paths and flipping iconMode - no JS changes required (see js/iconManager.js).",
+
+  "goldCoin":            { "emoji": "🪙", "image": null },
+  "compass":             { "emoji": "🧭", "image": null },
+  "cannon":               { "emoji": "💣", "image": null },
+  "pirateDagger":         { "emoji": "🗡️", "image": null },
+  "captainShield":        { "emoji": "🛡️", "image": null },
+  "seaSerpent":           { "emoji": "🐍", "image": null },
+  "luckyAnchor":          { "emoji": "⚓", "image": null },
+  "treasureChestGoldenKey": { "emoji": "🗝️", "image": null },
+  "treasureMap":          { "emoji": "🗺️", "image": null },
+
+  "zone.treasureDeck":    { "emoji": "🃏", "image": null },
+  "zone.lostLoot":        { "emoji": "☠️", "image": null },
+  "zone.expeditionArea":  { "emoji": "🏝️", "image": null },
+  "zone.shipCargo":       { "emoji": "🚢", "image": null },
+
+  "action.exploreFurther": { "emoji": "⛵", "image": null },
+  "action.returnToShip":   { "emoji": "🏠", "image": null },
+
+  "event.shipwreck":       { "emoji": "💥", "image": null },
+  "event.duplicate":       { "emoji": "⚠️", "image": null },
+
+  "_fallback":            { "emoji": "❓", "image": null }
+}

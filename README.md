@@ -45,6 +45,16 @@ independence, UI independence, data-driven cards, no hard-coded card names,
 etc. See [`docs/architecture/development-rules.md`](docs/architecture/development-rules.md)
 before writing any gameplay code.
 
+## Project standards
+
+Standing rules that apply to every future change, not just Phase 0:
+
+1. **Delivery** — every delivered zip is accompanied by a git commit header + description (conventional-commit style).
+2. **Versioning** — `package.json` version follows [SemVer](https://semver.org/), starting at `0.0.0`; bumped on every change (see [`CHANGELOG.md`](CHANGELOG.md)).
+3. **UI/UX** — layout and interaction decisions reference well-known games with the same problem (see [`docs/design/ui-ux-inspiration.md`](docs/design/ui-ux-inspiration.md)) rather than inventing conventions from scratch.
+4. **Data-driven** — no gameplay constant, ability name, or UI string is hard-coded in JS; it lives in `/data` (see [`docs/architecture/data-driven-design.md`](docs/architecture/data-driven-design.md)).
+5. **Icons** — Phase 1+ uses emoji placeholders resolved through `js/iconManager.js` + `data/iconMap.json`, so swapping to real artwork later never requires code changes.
+
 ## Roadmap
 
 25 phases, from foundation through Web release and Unity port. See

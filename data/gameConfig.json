@@ -34,5 +34,9 @@
     "seaSerpent",
     "treasureMap",
     "treasureChestGoldenKey"
-  ]
+  ],
+  "assets": {
+    "_comment": "Controls how card/UI icons resolve. See data/iconMap.json and js/iconManager.js. Switching 'emoji' -> 'image' requires editing data only, never code (data-driven rule, GDD §2.3).",
+    "iconMode": "emoji"
+  }
 }
