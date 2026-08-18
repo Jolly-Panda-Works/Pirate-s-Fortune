@@ -7,6 +7,29 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.8.0] - Prompt 004: Turn System
+
+### Added
+- `js/turnManager.js` fully implemented: the explicit GDD §7 state
+  machine, one named function per state
+  (`startGame, playerTurnStart, drawCard, revealCard, checkDuplicate,
+  shipwreck, resolveAbility, playerDecision, returnToShip, endTurn,
+  gameEnd, scoring`), driving every transition through `gameState.js`'s
+  mutators only. Round-robin player order uses
+  `gameState.setCurrentPlayerIndex()` exclusively.
+- Prompt 004 scope: `CHECK_DUPLICATE` always resolves "safe"
+  (`detectDuplicate()` stub returns `false`; real logic in Prompt 006's
+  `burnManager.js`), `PLAYER_DECISION` always auto-resolves "Return to
+  Ship" (real externally-drivable decision arrives in Prompt 005's
+  `gameManager.js`), and `RESOLVE_ABILITY`/`SHIPWRECK`/`RETURN_TO_SHIP`
+  are no-op/minimal passthroughs per the prompt's explicit scope.
+- `tests/integration/full-loop-stub.test.js` — 9 tests: full stub games
+  for 2, 3, and 4 players complete end-to-end to `SCORING` with the
+  Treasure Deck exhausted and no runtime errors; exactly 50 turns
+  recorded; strict round-robin order; every player gets a turn;
+  turn-history correctness; determinism across repeated runs with the
+  same seeds; zero-player guard.
+
 ## [0.7.0] - Prompt 003: Deck System
 
 ### Added

@@ -8,7 +8,7 @@
 | 001 — Data Architecture | 1 | ✅ Done — 60 card model generated + validated (`tests/unit/deck-model.test.js`, 9/9 pass) | 0.5.0 |
 | 002 — Game State | 2 | ✅ Done — `gameState.js` + `cardManager.js` implemented (`tests/unit/game-state.test.js` 9/9, `tests/unit/card-manager.test.js` 8/8 pass) | 0.6.0 |
 | 003 — Deck System | 3 | ✅ Done — `deckManager.js` implemented (`tests/unit/deck-manager.test.js` 15/15 pass) | 0.7.0 |
-| 004 — Turn System | 4 | ⏳ Not started | — |
+| 004 — Turn System | 4 | ✅ Done — `turnManager.js` state machine implemented (`tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.8.0 |
 | 005 — Push-Your-Luck Core | 5 | ⏳ Not started | — |
 | 006 — Duplicate / Shipwreck | 6 | ⏳ Not started | — |
 | 007 — Collection | 7 | ⏳ Not started | — |
@@ -29,6 +29,39 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 004
+
+- `js/turnManager.js`: the full GDD §7 state machine, one explicitly named
+  function per state (`playerTurnStart, drawCard, revealCard,
+  checkDuplicate, shipwreck, resolveAbility, playerDecision, returnToShip,
+  endTurn, gameEnd, scoring`), called in sequence — never inlined into a
+  branching blob — so a later prompt can swap a single function's body
+  without touching the transition shape.
+- Per Prompt 004 scope: `detectDuplicate()` always returns `false`
+  (CHECK_DUPLICATE always resolves "safe" until burnManager.js, Prompt
+  006), and `playerDecision()` always auto-resolves "Return to Ship"
+  (until gameManager.js makes it externally drivable, Prompt 005).
+  `resolveAbility`, `shipwreck`, and `returnToShip` are intentionally
+  no-op/minimal passthroughs — `returnToShip` only clears the Expedition
+  Area and logs a turn-history entry, no real cargo/collection logic yet
+  (Prompt 007).
+- Round-robin turn order is driven entirely through
+  `gameState.setCurrentPlayerIndex()` — no local counter anywhere in the
+  module.
+- `startGame(cardDefinitions, config, players, deckOptions)` seeds
+  GameState + decks (via `deckManager.initializeDecks`) and runs the
+  entire stub loop synchronously to completion — safe at this phase since
+  every step resolves deterministically with no external pause. Prompt
+  005 will introduce the first async-drivable pause point at
+  PLAYER_DECISION.
+- `tests/integration/full-loop-stub.test.js` — 9 tests: full games for 2/3/4
+  players reach `SCORING` with the Treasure Deck exhausted and no thrown
+  errors; exactly 50 turns are recorded (one draw per turn under the
+  stubbed decision); strict round-robin order; every player gets at least
+  one turn; every turn-history entry records the stubbed `"return"`
+  decision; identical turn history across two runs with the same seeds
+  (determinism); `startGame` throws for zero players.
 
 ## Notes on Prompt 003
 
