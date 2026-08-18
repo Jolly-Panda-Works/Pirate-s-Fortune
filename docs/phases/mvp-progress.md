@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 001 — Data Architecture | 1 | ✅ Done — 60 card model generated + validated (`tests/unit/deck-model.test.js`, 9/9 pass) | 0.5.0 |
 | 002 — Game State | 2 | ✅ Done — `gameState.js` + `cardManager.js` implemented (`tests/unit/game-state.test.js` 9/9, `tests/unit/card-manager.test.js` 8/8 pass) | 0.6.0 |
-| 003 — Deck System | 3 | ⏳ Not started | — |
+| 003 — Deck System | 3 | ✅ Done — `deckManager.js` implemented (`tests/unit/deck-manager.test.js` 15/15 pass) | 0.7.0 |
 | 004 — Turn System | 4 | ⏳ Not started | — |
 | 005 — Push-Your-Luck Core | 5 | ⏳ Not started | — |
 | 006 — Duplicate / Shipwreck | 6 | ⏳ Not started | — |
@@ -29,6 +29,31 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 003
+
+- `js/deckManager.js`: `buildInitialDecks(cardDefinitions, config, options)`
+  is pure (no gameState side effects) — Lost Loot is selected via
+  `gameConfig.initialLostLoot.cardIds` (the single checked source Prompt
+  001 derived and validated), never by re-deriving the value-2/value-4
+  rule by hand inside this module. The remainder becomes the Treasure
+  Deck. Both are converted to `CardInstance`s via `cardManager` and
+  shuffled independently with a seeded Fisher-Yates shuffle (mulberry32
+  PRNG, no dependency) — `seededShuffle(array, seed)` is deterministic
+  when a seed is given, falls back to `Math.random` for real games when
+  omitted.
+- `initializeDecks(cardDefinitions, config, options)` builds the decks and
+  wires them into `gameState` via `setTreasureDeck`/`setLostLoot` only —
+  the sanctioned way to seed a new game's decks.
+- `drawFromTreasureDeck()` reads/writes only through gameState's
+  selector/mutator (`getTreasureDeck`/`setTreasureDeck`), treats index 0
+  as the "top" of the deck, and returns `null` (never throws) once empty
+  — ready for turnManager (Phase 4) to use as the GAME_END trigger.
+- `tests/unit/deck-manager.test.js` — 15 tests: seeded-shuffle
+  determinism (string/numeric seeds, non-mutation, permutation
+  correctness), Lost Loot rule compliance (GDD §5.2), exact 50-card
+  Treasure Deck, independent-seed shuffling, gameState wiring, draw order,
+  and empty-deck draw safety (including repeated draws after exhaustion).
 
 ## Notes on Prompt 002
 

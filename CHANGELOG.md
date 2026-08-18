@@ -7,6 +7,28 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.7.0] - Prompt 003: Deck System
+
+### Added
+- `js/deckManager.js` fully implemented:
+  - `seededShuffle(array, seed)` — dependency-free mulberry32-based seeded
+    Fisher-Yates shuffle; deterministic with a seed (string or number),
+    falls back to `Math.random` when no seed is given; never mutates its
+    input.
+  - `buildInitialDecks(cardDefinitions, config, options)` — pure function
+    deriving the initial Treasure Deck (50 cards) and Lost Loot (10 cards)
+    per GDD §5.2/§5.3, using `gameConfig.initialLostLoot.cardIds` as the
+    single checked source rather than re-deriving the rule by hand;
+    shuffles both independently.
+  - `initializeDecks(cardDefinitions, config, options)` — builds and wires
+    the result into `gameState` via `setTreasureDeck`/`setLostLoot` only.
+  - `drawFromTreasureDeck()` — pops the top card via gameState's
+    selector/mutator, returns `null` (never throws) once the deck is
+    empty.
+- `tests/unit/deck-manager.test.js` — 15 tests covering shuffle
+  determinism, GDD §5.2 Lost Loot compliance, exact deck sizes, gameState
+  wiring, draw ordering, and empty-deck draw safety.
+
 ## [0.6.0] - Prompt 002: Game State
 
 ### Added
