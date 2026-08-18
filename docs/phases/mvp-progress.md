@@ -6,7 +6,7 @@
 | Prompt | فاز | وضعیت | نسخه |
 |---|---|---|---|
 | 001 — Data Architecture | 1 | ✅ Done — 60 card model generated + validated (`tests/unit/deck-model.test.js`, 9/9 pass) | 0.5.0 |
-| 002 — Game State | 2 | ⏳ Not started | — |
+| 002 — Game State | 2 | ✅ Done — `gameState.js` + `cardManager.js` implemented (`tests/unit/game-state.test.js` 9/9, `tests/unit/card-manager.test.js` 8/8 pass) | 0.6.0 |
 | 003 — Deck System | 3 | ⏳ Not started | — |
 | 004 — Turn System | 4 | ⏳ Not started | — |
 | 005 — Push-Your-Luck Core | 5 | ⏳ Not started | — |
@@ -29,6 +29,33 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 002
+
+- `js/gameState.js`: module-private `state` object matching the GDD §6
+  shape exactly (`phase, treasureDeck, lostLoot, expeditionArea, players[],
+  currentPlayerIndex, turnHistory, abilityContext, config`). Only selectors
+  (deep-copy on every read, via JSON round-trip) and named mutators are
+  exported — the raw object is never reachable from outside the module, so
+  rule 5 (UI never mutates GameState directly) is structurally enforced,
+  not just documented.
+- Event system: a tiny internal `Map`-based pub/sub (`on/off/emit`), no
+  external library and no browser `EventTarget` (rule 1/12). Every single
+  mutator calls `emit()` exactly once after applying its change; a
+  wildcard `'*'` subscription is supported for systems (or tests) that
+  want to observe every mutation without naming each event type.
+- `js/cardManager.js`: kept intentionally stateless/pure — it does not
+  import or touch `gameState.js`. It only knows how to build a
+  `CardInstance` (GDD §4.2: `defId, currentZone, ownerId, instanceId`) from
+  a `cards.json` definition and how to derive a moved copy of one
+  (`moveInstance` never mutates in place). Actual zone storage stays owned
+  by `gameState.js`'s mutators, per the module-map's "one responsibility
+  per file" rule.
+- Zones use the GDD §4.2 vocabulary exactly: `deck | lostLoot | expedition
+  | cargo` — validated, invalid zones throw rather than silently
+  corrupting state.
+- No other module in `js/` was wired in this prompt — only `logger.js` is
+  imported by the two new files, matching the Prompt 002 exit criteria.
 
 ## Notes on Prompt 001
 

@@ -7,6 +7,33 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.6.0] - Prompt 002: Game State
+
+### Added
+- `js/gameState.js` fully implemented: module-private `GameState` object
+  matching GDD §6 exactly (`phase, treasureDeck, lostLoot, expeditionArea,
+  players[], currentPlayerIndex, turnHistory, abilityContext, config`).
+  Selectors return deep copies (never a live reference); a full set of
+  named mutators is the only way to change state; an internal `on/off`
+  pub/sub emits an event after every single mutation (GDD §6.1), including
+  a `'*'` wildcard subscription.
+- `js/cardManager.js` fully implemented: `createCardInstance`,
+  `createInstancesFromDefinitions`, `moveInstance` (returns a new,
+  non-mutated copy), `getDefinition` — all operating on `defId` only, per
+  rule 4. Zones use the GDD §4.2 vocabulary (`deck | lostLoot | expedition
+  | cargo`).
+- `tests/unit/game-state.test.js` — 9 tests: initial state shape,
+  mutable-reference leakage (arrays, single player object, full snapshot),
+  every mutator emits its event, listener unsubscribe.
+- `tests/unit/card-manager.test.js` — 8 tests against the real
+  `data/cards.json` deck model: instance shape, zone validation, unique
+  instanceIds, immutable `moveInstance`, `getDefinition` lookup.
+
+### Scope notes
+- No other `js/` module was wired in this prompt — `gameState.js` and
+  `cardManager.js` only import `logger.js`, per the Prompt 002 exit
+  criteria.
+
 ## [0.5.0] - Prompt 001: Data Architecture
 
 ### Added
