@@ -9,7 +9,7 @@
 | 002 — Game State | 2 | ✅ Done — `gameState.js` + `cardManager.js` implemented (`tests/unit/game-state.test.js` 9/9, `tests/unit/card-manager.test.js` 8/8 pass) | 0.6.0 |
 | 003 — Deck System | 3 | ✅ Done — `deckManager.js` implemented (`tests/unit/deck-manager.test.js` 15/15 pass) | 0.7.0 |
 | 004 — Turn System | 4 | ✅ Done — `turnManager.js` state machine implemented (`tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.8.0 |
-| 005 — Push-Your-Luck Core | 5 | ⏳ Not started | — |
+| 005 — Push-Your-Luck Core | 5 | ✅ Done — `gameManager.js` implemented; `turnManager.js` PLAYER_DECISION now externally drivable (`tests/integration/explore-vs-return.test.js` 8/8, `tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.9.0 |
 | 006 — Duplicate / Shipwreck | 6 | ⏳ Not started | — |
 | 007 — Collection | 7 | ⏳ Not started | — |
 | 008 — Scoring | 8 | ⏳ Not started | — |
@@ -29,6 +29,59 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 005
+
+- `js/gameManager.js`: implemented as the thin public gameplay API (GDD
+  §6.1/§18.2) — `startGame()` (passthrough to turnManager), `revealNextCard()`
+  and `returnToShip()` (the two human decision actions), plus every
+  `gameState.js` selector re-exported read-only, and `on`/`off` for event
+  subscription. This is now the only module meant to be imported for
+  gameplay actions — UI/tests should never need to reach into
+  `turnManager.js` or `gameState.js`'s mutators directly.
+- `revealNextCard()`/`returnToShip()` both guard via
+  `assertAwaitingHumanDecision()`: they throw unless `GameState.phase` is
+  `PLAYER_DECISION` AND the current player is human — calling them with no
+  pending decision, or during an AI's turn, throws instead of silently
+  corrupting state.
+- `js/turnManager.js`'s `playerDecision()` is now real: AI players
+  (`current.isAI === true`) resolve immediately via a placeholder threshold
+  function `aiDecision()` (explore while Expedition Area size < 4, else
+  return — GDD §15 MVP AI; the real AI lands in Prompt 015). Human players
+  cause `playerDecision()` to return without continuing the call chain —
+  the state machine sits at `PLAYER_DECISION` until `gameManager.
+  revealNextCard()`/`returnToShip()` resume it externally by re-entering
+  `turnManager.drawCard()`/`turnManager.returnToShip()`. This is the
+  "resumable/awaitable step, not a blocking loop" the prompt called for —
+  no async/await, no polling; the JS call stack itself is the pause point.
+- `js/turnManager.js`'s `returnToShip()` now moves every Expedition Area
+  card into the current player's Ship Cargo inline (via
+  `cardManager.moveInstance` → zone `cargo`, owner → current player) before
+  clearing the Expedition Area — previously (Prompt 004) it only cleared
+  the Expedition Area with no cargo movement. This inline version is
+  intentionally unsorted; `collectManager.js` (Prompt 007) replaces this
+  function's body with the real, sorted implementation without touching
+  any call site.
+- `tests/integration/explore-vs-return.test.js` — 8 tests: opening-turn
+  pause for a human player; `revealNextCard()` growing the Expedition Area
+  one card at a time; `returnToShip()` moving cards into Ship Cargo
+  (zone/owner correctly set, no duplication/loss) and clearing the
+  Expedition Area, with the turn correctly advancing to the next player;
+  a full explore-then-return round trip; both actions throwing with no
+  decision pending; an AI player's entire turn resolving with zero
+  external calls; and a game starting on an AI player completing that
+  AI's opening turn before `startGame()` even returns.
+- `tests/integration/full-loop-stub.test.js` (originally Prompt 004)
+  updated for Prompt 005's real `PLAYER_DECISION` behavior: switched to
+  all-AI players so a genuinely unattended full game is still exercised
+  (round-robin order, determinism, no thrown errors), and per-turn
+  assertions that assumed the old "always return after exactly one card"
+  stub (turn count fixed at 50, `cardsSecured` always 1) were relaxed to
+  match the placeholder AI threshold's actual behavior (up to 4 cards
+  explored per turn); a card-conservation check (cargo + remaining
+  Expedition Area == 50) replaced the old "Expedition Area always empty at
+  game end" assumption, since the Treasure Deck can now run out mid-explore
+  for the last player to act.
 
 ## Notes on Prompt 004
 

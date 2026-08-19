@@ -1,6 +1,6 @@
 {
   "name": "treasure-raiders",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Push-your-luck pirate treasure card game. Web first, Unity later.",
   "type": "module",
   "private": true,

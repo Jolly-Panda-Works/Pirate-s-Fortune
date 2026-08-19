@@ -1,12 +1,21 @@
 /**
  * full-loop-stub.test.js
  *
- * Covers Prompt 004 exit criteria for js/turnManager.js: run a full,
- * self-driving game end-to-end (every card resolves "safe" — real
- * duplicate detection isn't wired in until Prompt 006 — and every
- * decision is the stubbed "Return to Ship" from Prompt 004) and assert
- * it reaches GAME_END/SCORING with the Treasure Deck exhausted and no
- * runtime errors, for 2, 3, and 4 players.
+ * Originally Prompt 004's exit-criteria test: run a full, self-driving
+ * game end-to-end and assert it reaches GAME_END/SCORING with no runtime
+ * errors. Prompt 004's version relied on PLAYER_DECISION always
+ * auto-resolving "Return to Ship" for every player — Prompt 005 replaced
+ * that stub with real behavior (AI players resolve via a placeholder
+ * threshold; HUMAN players now pause PLAYER_DECISION for external input,
+ * see explore-vs-return.test.js).
+ *
+ * To keep validating a genuinely unattended full game (round-robin order,
+ * determinism, deck exhaustion, no thrown errors) this file now uses
+ * all-AI players, so the placeholder threshold decision
+ * (js/turnManager.js's aiDecision — explore while Expedition Area size < 4,
+ * else return) drives the whole game to completion with no external calls.
+ * Every card still resolves "safe" — real duplicate detection isn't wired
+ * in until Prompt 006.
  *
  * Run with: node --test tests/integration/full-loop-stub.test.js
  */
@@ -36,7 +45,7 @@ function buildPlayers(count) {
   return Array.from({ length: count }, (_, i) => ({
     id: `p${i + 1}`,
     name: `Player ${i + 1}`,
-    isAI: i !== 0,
+    isAI: true,
     shipCargo: [],
     score: 0,
   }));
@@ -55,20 +64,37 @@ for (const playerCount of [2, 3, 4]) {
 
     assert.equal(gameState.getPhase(), gameState.PHASES.SCORING);
     assert.equal(gameState.getTreasureDeck().length, 0);
-    assert.equal(gameState.getExpeditionArea().length, 0);
+    // Under the placeholder AI threshold (explore while size < 4), the
+    // Treasure Deck can run dry mid-exploration for the last player to act
+    // — drawCard() folds straight into GAME_END in that case (by design,
+    // see turnManager.js's drawCard doc), so any cards that player was
+    // mid-explore with are legitimately still sitting in the Expedition
+    // Area, never returned to ship. Nothing is lost from the deck though:
+    // every card is accounted for across lostLoot + every player's cargo +
+    // whatever remains in the Expedition Area.
+    const totalCargo = gameState.getPlayers().reduce((sum, p) => sum + p.shipCargo.length, 0);
+    const expeditionRemaining = gameState.getExpeditionArea().length;
+    assert.equal(totalCargo + expeditionRemaining, 50);
   });
 }
 
-test('one turn is played per Treasure Deck card, since the stubbed decision always returns to ship immediately', () => {
+test('the number of recorded turns is bounded by the Treasure Deck size, with at least one card secured per turn', () => {
   const players = buildPlayers(2);
   turnManager.startGame(cardDefs, config, players, {
     treasureSeed: 'history-treasure',
     lostLootSeed: 'history-lostloot',
   });
 
-  // Initial Treasure Deck is exactly 50 cards (GDD §5.3); one draw per
-  // turn under the Prompt 004 stub means exactly 50 turns are recorded.
-  assert.equal(gameState.getTurnHistory().length, 50);
+  // Initial Treasure Deck is exactly 50 cards (GDD §5.3). Under the
+  // placeholder AI threshold (explore while Expedition Area size < 4),
+  // most turns secure up to 4 cards, so turn count is well under 50 but
+  // always at least 1 and never more than 50.
+  const history = gameState.getTurnHistory();
+  assert.ok(history.length >= 1);
+  assert.ok(history.length <= 50);
+  for (const entry of history) {
+    assert.ok(entry.cardsSecured >= 1 && entry.cardsSecured <= 4);
+  }
 });
 
 test('turn order is strict round-robin across players[]', () => {
@@ -97,7 +123,7 @@ test('every player gets at least one turn across a full game', () => {
   assert.equal(seenPlayerIds.size, players.length);
 });
 
-test('every turn history entry records the stubbed "return" decision with exactly one card secured', () => {
+test('every recorded turn history entry is a "return" decision (the only path that appends one)', () => {
   const players = buildPlayers(2);
   turnManager.startGame(cardDefs, config, players, {
     treasureSeed: 'decision-treasure',
@@ -106,7 +132,7 @@ test('every turn history entry records the stubbed "return" decision with exactl
 
   for (const entry of gameState.getTurnHistory()) {
     assert.equal(entry.decision, 'return');
-    assert.equal(entry.cardsSecured, 1);
+    assert.ok(entry.cardsSecured >= 1);
   }
 });
 

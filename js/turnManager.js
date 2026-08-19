@@ -3,6 +3,7 @@
  *
  * Responsibility: Drives state-machine transitions (GDD §7).
  * Implemented: Phase 4 (Turn System) — Prompt 004.
+ * Updated: Phase 5 (Push-Your-Luck Core) — Prompt 005.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -15,16 +16,26 @@
  * silently reordered by a future change — matching the same discipline
  * development-rules.md requires for the Card Resolution Order.
  *
- * Prompt 004 scope (per docs/prompts/stage-a-core-engine.md):
- *  - RESOLVE_ABILITY, SHIPWRECK and RETURN_TO_SHIP are no-op passthroughs
- *    here — their real logic lands in Prompts 009/006/007 respectively.
- *    Only the state-machine shape/transitions are delivered now.
- *  - CHECK_DUPLICATE always resolves "safe" (detectDuplicate() is a stub
- *    returning false) until burnManager.js lands in Prompt 006.
- *  - PLAYER_DECISION always resolves "Return to Ship" (a stubbed
- *    decision) until gameManager.js makes it externally drivable in
- *    Prompt 005 — this is what makes the "no-ability loop" fully
- *    playable end-to-end at this phase.
+ * Prompt 005 scope (per docs/prompts/stage-a-core-engine.md, GDD §1.1/§2.2):
+ *  - PLAYER_DECISION is now real for AI players: a placeholder threshold
+ *    decision (explore while Expedition Area size < 4, else return —
+ *    GDD §15 MVP AI; the real AI arrives in Prompt 015) resolves
+ *    immediately and synchronously, same call stack.
+ *  - PLAYER_DECISION PAUSES for human players (current.isAI === false):
+ *    this function returns without calling drawCard()/returnToShip()
+ *    itself. The state machine sits at PLAYER_DECISION until gameManager.js
+ *    (Prompt 005) drives it forward externally by calling this module's
+ *    drawCard() (Explore Further) or returnToShip() (Return to Ship) —
+ *    i.e. PLAYER_DECISION is a resumable/awaitable step, not a blocking
+ *    loop that waits on external input itself.
+ *  - RETURN_TO_SHIP now moves the Expedition Area into the current
+ *    player's Ship Cargo inline (unsorted) instead of only clearing the
+ *    Expedition Area — the real, sorted implementation lands in
+ *    collectManager.js, Prompt 007, which replaces this inline logic.
+ *  - RESOLVE_ABILITY and SHIPWRECK remain no-op passthroughs; their real
+ *    logic lands in Prompts 009/006 respectively.
+ *  - CHECK_DUPLICATE still always resolves "safe" (detectDuplicate() is a
+ *    stub returning false) until burnManager.js lands in Prompt 006.
  *
  * Rules this module respects (GDD §30):
  *  - Engine-independent (no DOM/browser/Unity APIs in rules code).
@@ -55,6 +66,25 @@ const { PHASES } = gameState;
  */
 function detectDuplicate(_expeditionCard) {
   return false;
+}
+
+/**
+ * Placeholder MVP AI threshold (GDD §15): explore while the Expedition
+ * Area has fewer than this many cards, return once it reaches this size.
+ * Real AI (weighing deck composition, rival scores, risk, etc. — GDD §17)
+ * arrives in Prompt 015; this constant/function exist only so
+ * playerDecision() has stable, legal, non-blocking AI behavior until then.
+ */
+const AI_RETURN_THRESHOLD = 4;
+
+/**
+ * Placeholder AI decision. Pure function of expedition size so it's
+ * trivially testable/deterministic on its own.
+ * @param {number} expeditionSize
+ * @returns {'explore'|'return'}
+ */
+function aiDecision(expeditionSize) {
+  return expeditionSize >= AI_RETURN_THRESHOLD ? 'return' : 'explore';
 }
 
 // ---------------------------------------------------------------------------
@@ -179,38 +209,78 @@ function resolveAbility(expeditionCard) {
 
 /**
  * PLAYER_DECISION -> DRAW_CARD (explore) | RETURN_TO_SHIP (return).
- * Stub: for this phase the decision is always "Return to Ship" so the
- * full loop is playable end-to-end without a human/AI driver. Prompt 005
- * (gameManager.js) makes this step externally drivable via
- * revealNextCard()/returnToShip() instead of auto-resolving here.
+ *
+ * AI players (current.isAI === true) resolve immediately using the
+ * placeholder threshold decision (aiDecision()) — same call stack, no
+ * pause.
+ *
+ * Human players PAUSE here: this function returns the PLAYER_DECISION
+ * phase without calling drawCard() or returnToShip() itself. The call
+ * stack above (drawCard -> revealCard -> checkDuplicate -> resolveAbility
+ * -> playerDecision) simply unwinds, leaving GameState sitting at
+ * PLAYER_DECISION for the current player. gameManager.revealNextCard()/
+ * returnToShip() (Prompt 005) resume play by calling this module's
+ * drawCard()/returnToShip() directly — each such call re-enters and runs
+ * exactly one more step of the state machine, which may pause again at
+ * the next PLAYER_DECISION or run on to GAME_END/SCORING.
+ *
+ * @returns {string} PHASES.PLAYER_DECISION when paused for a human, or
+ *   whatever phase the resumed AI branch settles on
  */
 function playerDecision() {
   gameState.setPhase(PHASES.PLAYER_DECISION);
   const current = gameState.getCurrentPlayer();
-  log.debug('Player decision (stub — always "Return to Ship" until Prompt 005)', { playerId: current?.id });
-  return returnToShip();
+
+  if (current?.isAI) {
+    const expeditionSize = gameState.getExpeditionArea().length;
+    const decision = aiDecision(expeditionSize);
+    log.debug('AI player decision (placeholder threshold — real AI arrives Prompt 015)', {
+      playerId: current.id,
+      expeditionSize,
+      decision,
+    });
+    return decision === 'explore' ? drawCard() : returnToShip();
+  }
+
+  log.info('Awaiting human player decision — paused at PLAYER_DECISION', {
+    playerId: current?.id,
+  });
+  return gameState.getPhase();
 }
 
 /**
  * RETURN_TO_SHIP -> END_TURN.
- * Stub: real collection (move Expedition Area cards to the player's Ship
- * Cargo, sorted) arrives in collectManager.js, Prompt 007. For now this
- * only clears the Expedition Area (so the next turn starts clean) and
- * records a turn-history entry — no cards reach a player's cargo yet.
+ * Inline stub (Prompt 005): moves every Expedition Area card into the
+ * current player's Ship Cargo (via cardManager.moveInstance, zone ->
+ * CARGO, owner -> current player) and clears the Expedition Area.
+ * Unsorted — the real, sorted implementation (GDD §10: lowest-to-highest
+ * by value, tie-break by type) lands in collectManager.js, Prompt 007,
+ * which replaces this function's body; the call site in playerDecision()/
+ * gameManager.returnToShip() will not need to change.
  */
 function returnToShip() {
   gameState.setPhase(PHASES.RETURN_TO_SHIP);
   const current = gameState.getCurrentPlayer();
-  const cardsInExpedition = gameState.getExpeditionArea().length;
+  const expeditionCards = gameState.getExpeditionArea();
+
+  if (current) {
+    const cargoCards = expeditionCards.map((card) =>
+      cardManager.moveInstance(card, cardManager.ZONES.CARGO, current.id)
+    );
+    gameState.updatePlayer(current.id, {
+      shipCargo: [...(current.shipCargo ?? []), ...cargoCards],
+    });
+  }
+
   gameState.clearExpeditionArea();
   gameState.addTurnHistoryEntry({
     playerId: current?.id ?? null,
     decision: 'return',
-    cardsSecured: cardsInExpedition,
+    cardsSecured: expeditionCards.length,
   });
-  log.info('Returned to ship (stub — collectManager.js arrives Prompt 007)', {
+  log.info('Returned to ship (inline stub — collectManager.js sorts cargo in Prompt 007)', {
     playerId: current?.id,
-    cardsSecured: cardsInExpedition,
+    cardsSecured: expeditionCards.length,
   });
   return endTurn();
 }
