@@ -4,6 +4,7 @@
  * Responsibility: Drives state-machine transitions (GDD §7).
  * Implemented: Phase 4 (Turn System) — Prompt 004.
  * Updated: Phase 5 (Push-Your-Luck Core) — Prompt 005.
+ * Updated: Phase 6 (Duplicate / Shipwreck) — Prompt 006.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -15,6 +16,20 @@
  * (never inlined into a giant switch), so the shape above can't be
  * silently reordered by a future change — matching the same discipline
  * development-rules.md requires for the Card Resolution Order.
+ *
+ * Prompt 006 scope (per docs/prompts/stage-a-core-engine.md, GDD §8/§9):
+ *  - CHECK_DUPLICATE now calls burnManager.isDuplicate() for real (GDD §8
+ *    Step 3) instead of the old always-false stub.
+ *  - SHIPWRECK now calls burnManager.triggerShipwreck() (GDD §9): the
+ *    duplicate's ability never executes because SHIPWRECK is reached
+ *    directly from CHECK_DUPLICATE, bypassing RESOLVE_ABILITY entirely —
+ *    the call graph itself is the guarantee, not a flag/branch inside
+ *    resolveAbility().
+ *  - startGame() now retains the card definitions it was given (in a
+ *    module-private variable, gameCardDefinitions) for the lifetime of the
+ *    current game, since burnManager.isDuplicate() needs to look up each
+ *    CardInstance's `type` by defId and CardInstances only ever store
+ *    defId, never the full definition.
  *
  * Prompt 005 scope (per docs/prompts/stage-a-core-engine.md, GDD §1.1/§2.2):
  *  - PLAYER_DECISION is now real for AI players: a placeholder threshold
@@ -32,10 +47,8 @@
  *    player's Ship Cargo inline (unsorted) instead of only clearing the
  *    Expedition Area — the real, sorted implementation lands in
  *    collectManager.js, Prompt 007, which replaces this inline logic.
- *  - RESOLVE_ABILITY and SHIPWRECK remain no-op passthroughs; their real
- *    logic lands in Prompts 009/006 respectively.
- *  - CHECK_DUPLICATE still always resolves "safe" (detectDuplicate() is a
- *    stub returning false) until burnManager.js lands in Prompt 006.
+ *  - RESOLVE_ABILITY remains a no-op passthrough; real logic lands in
+ *    Prompt 009.
  *
  * Rules this module respects (GDD §30):
  *  - Engine-independent (no DOM/browser/Unity APIs in rules code).
@@ -47,26 +60,26 @@ import { createLogger } from './logger.js';
 import * as gameState from './gameState.js';
 import * as cardManager from './cardManager.js';
 import * as deckManager from './deckManager.js';
+import * as burnManager from './burnManager.js';
 
 const log = createLogger('turnManager');
 
 const { PHASES } = gameState;
+
+/**
+ * Module-private snapshot of the card definitions (data/cards.json
+ * `.cards`) the current game was started with. Set once per startGame()
+ * call and read by checkDuplicate() (via burnManager.isDuplicate()) —
+ * CardInstances only ever store defId, never their full definition, so
+ * something has to remember which definitions apply to this game.
+ */
+let gameCardDefinitions = null;
 
 // ---------------------------------------------------------------------------
 // Stubbed extension points (real implementations arrive in later prompts).
 // Isolated as named functions so a later prompt swaps the body, not the
 // call sites in the state machine below.
 // ---------------------------------------------------------------------------
-
-/**
- * Duplicate detection stub. Real implementation (comparing the new card's
- * type/symbol against every other card in the Expedition Area) arrives in
- * burnManager.js, Prompt 006 (GDD §8 Step 3).
- * @returns {boolean}
- */
-function detectDuplicate(_expeditionCard) {
-  return false;
-}
 
 /**
  * Placeholder MVP AI threshold (GDD §15): explore while the Expedition
@@ -106,6 +119,7 @@ function startGame(cardDefinitions, config, players, deckOptions = {}) {
     throw new Error('turnManager.startGame: at least one player is required');
   }
 
+  gameCardDefinitions = cardDefinitions;
   gameState.setPhase(PHASES.GAME_INIT);
   gameState.initState({ config, players });
   deckManager.initializeDecks(cardDefinitions, config, deckOptions);
@@ -166,12 +180,20 @@ function revealCard(drawnCard) {
 
 /**
  * CHECK_DUPLICATE -> SHIPWRECK (duplicate) | RESOLVE_ABILITY (safe).
+ * GDD §8 Step 3: delegates the actual comparison to burnManager.isDuplicate(),
+ * which compares expeditionCard's type against every OTHER card already in
+ * the Expedition Area (expeditionCard itself is already in there — it was
+ * added by revealCard() before this runs).
  */
 function checkDuplicate(expeditionCard) {
   gameState.setPhase(PHASES.CHECK_DUPLICATE);
-  const isDuplicate = detectDuplicate(expeditionCard);
+  const duplicate = burnManager.isDuplicate(
+    expeditionCard,
+    gameState.getExpeditionArea(),
+    gameCardDefinitions
+  );
 
-  if (isDuplicate) {
+  if (duplicate) {
     return shipwreck(expeditionCard);
   }
   return resolveAbility(expeditionCard);
@@ -179,16 +201,29 @@ function checkDuplicate(expeditionCard) {
 
 /**
  * SHIPWRECK -> END_TURN.
- * Stub: real Shipwreck effects (move all Expedition Area cards to Lost
- * Loot, clear Expedition Area) arrive in burnManager.js, Prompt 006.
- * Unreachable for now since detectDuplicate() always returns false, but
- * the transition shape is delivered so Prompt 006 only has to replace
- * this function's body, not the call sites.
+ * GDD §9: delegates the aftermath to burnManager.triggerShipwreck() (moves
+ * every Expedition Area card to Lost Loot, clears the Expedition Area),
+ * then records a turnHistory entry (decision: 'shipwreck', cardsLost) —
+ * mirroring the entry returnToShip() records for a normal turn, so every
+ * completed turn (safe or not) has exactly one turnHistory entry.
+ * Reached directly from CHECK_DUPLICATE — never from RESOLVE_ABILITY — so
+ * the duplicate's own ability structurally never executes (GDD §9: "The
+ * duplicate card must never execute its own ability"). No player decision
+ * occurs; this goes straight to END_TURN.
  */
 function shipwreck(expeditionCard) {
   gameState.setPhase(PHASES.SHIPWRECK);
-  log.warn('Shipwreck (stub — burnManager.js arrives Prompt 006)', {
-    instanceId: expeditionCard.instanceId,
+  const current = gameState.getCurrentPlayer();
+  const lostLootCards = burnManager.triggerShipwreck();
+  gameState.addTurnHistoryEntry({
+    playerId: current?.id ?? null,
+    decision: 'shipwreck',
+    cardsLost: lostLootCards.length,
+  });
+  log.warn('Shipwreck', {
+    playerId: current?.id,
+    triggeringInstanceId: expeditionCard.instanceId,
+    cardsLost: lostLootCards.length,
   });
   return endTurn();
 }

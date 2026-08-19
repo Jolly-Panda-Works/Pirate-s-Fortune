@@ -14,6 +14,15 @@
  * tests below, so a human's own turn is never auto-continued by AI logic
  * mid-assertion — AI auto-resolution is covered separately.
  *
+ * Updated for Prompt 006 (Duplicate / Shipwreck): duplicate detection is
+ * now real (js/burnManager.js), so a purely random/seeded deck can
+ * legitimately produce a Shipwreck partway through a scenario these tests
+ * don't intend to exercise. primeSafeDraws() below overrides the front of
+ * the live Treasure Deck with cards of guaranteed-distinct types right
+ * after the game (or a turn) starts, so multi-card explore sequences in
+ * this file are deterministically duplicate-free. Shipwreck itself is
+ * covered separately in shipwreck.test.js.
+ *
  * Run with: node --test tests/integration/explore-vs-return.test.js
  */
 
@@ -52,6 +61,40 @@ function buildHumanAndAiPlayers() {
   ];
 }
 
+/**
+ * Overrides the front of the live Treasure Deck with `count` freshly-built
+ * CardInstances, each of a distinct type never used before by the current
+ * Expedition Area's cards or by each other — guaranteeing that drawing all
+ * of them in sequence into the SAME Expedition Area never triggers a
+ * duplicate. The rest of the real (already-shuffled) deck follows behind
+ * them, untouched.
+ * @param {number} count
+ * @returns {Array<object>} the primed CardInstance[] (in draw order)
+ */
+function primeSafeDraws(count) {
+  const usedTypes = new Set(
+    gameManager.getExpeditionArea().map((card) => {
+      const def = cardDefs.find((d) => d.id === card.defId);
+      return def.type;
+    })
+  );
+
+  const chosenDefs = [];
+  for (const def of cardDefs) {
+    if (chosenDefs.length === count) break;
+    if (usedTypes.has(def.type)) continue;
+    usedTypes.add(def.type);
+    chosenDefs.push(def);
+  }
+  if (chosenDefs.length < count) {
+    throw new Error(`primeSafeDraws: cardDefs doesn't contain ${count} additional distinct types`);
+  }
+
+  const primedInstances = chosenDefs.map((def) => cardManager.createCardInstance(def, cardManager.ZONES.DECK));
+  gameState.setTreasureDeck([...primedInstances, ...gameManager.getTreasureDeck()]);
+  return primedInstances;
+}
+
 test('game pauses at PLAYER_DECISION for the first player right after the opening reveal', () => {
   gameManager.startGame(cardDefs, config, buildHumanPlayers(), {
     treasureSeed: 'explore-return-pause',
@@ -68,6 +111,7 @@ test('revealNextCard() repeatedly grows the Expedition Area, one card per call',
     treasureSeed: 'explore-growth',
     lostLootSeed: 'explore-growth-lostloot',
   });
+  primeSafeDraws(2);
 
   assert.equal(gameManager.getExpeditionArea().length, 1);
 
@@ -84,6 +128,7 @@ test("returnToShip() moves the Expedition Area into the current player's Ship Ca
     treasureSeed: 'explore-then-return',
     lostLootSeed: 'explore-then-return-lostloot',
   });
+  primeSafeDraws(2);
 
   gameManager.revealNextCard();
   gameManager.revealNextCard();
@@ -119,6 +164,7 @@ test('a full round trip (explore twice, return) leaves no cards duplicated or lo
     treasureSeed: 'round-trip',
     lostLootSeed: 'round-trip-lostloot',
   });
+  primeSafeDraws(1);
 
   gameManager.revealNextCard();
   gameManager.returnToShip();
@@ -141,6 +187,10 @@ test("AI player's turn resolves without any external revealNextCard()/returnToSh
     treasureSeed: 'ai-auto-resolve',
     lostLootSeed: 'ai-auto-resolve-lostloot',
   });
+  // The AI may explore up to the placeholder threshold (4 cards) once its
+  // turn starts — prime that many guaranteed-distinct-type draws so its
+  // whole turn is duplicate-free, exercising the "no Shipwreck" path.
+  primeSafeDraws(4);
 
   // Human returns to ship immediately; the AI's entire turn (explore up to
   // the placeholder threshold, then return) plays out automatically inside
@@ -152,11 +202,12 @@ test("AI player's turn resolves without any external revealNextCard()/returnToSh
   assert.equal(gameManager.getCurrentPlayer().id, 'human');
 
   const ai = gameManager.getPlayer('ai');
-  assert.ok(ai.shipCargo.length >= 1, 'AI should have secured at least one card on its own turn');
+  assert.equal(ai.shipCargo.length, 4, 'AI should have explored to the threshold, then secured all 4 cards');
 
   const aiTurnEntry = gameManager.getTurnHistory().find((e) => e.playerId === 'ai');
   assert.ok(aiTurnEntry, 'AI turn should be recorded in turn history without any external call');
   assert.equal(aiTurnEntry.decision, 'return');
+  assert.equal(aiTurnEntry.cardsSecured, 4);
 });
 
 test('an AI-first game plays its opening turn to completion before any human input is needed', () => {
@@ -165,6 +216,11 @@ test('an AI-first game plays its opening turn to completion before any human inp
     { id: 'human', name: 'Human', isAI: false, shipCargo: [], score: 0 },
   ];
 
+  // startGame() draws the AI's first card before we get any control back,
+  // so this scenario relies on a seed whose first four cards for the AI
+  // happen to be duplicate-free (verified for this fixed seed) rather than
+  // primeSafeDraws() — there is no pause point between "game starts" and
+  // "AI's whole opening turn resolves" to intervene from.
   gameManager.startGame(cardDefs, config, players, {
     treasureSeed: 'ai-first',
     lostLootSeed: 'ai-first-lostloot',

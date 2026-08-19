@@ -10,7 +10,7 @@
 | 003 — Deck System | 3 | ✅ Done — `deckManager.js` implemented (`tests/unit/deck-manager.test.js` 15/15 pass) | 0.7.0 |
 | 004 — Turn System | 4 | ✅ Done — `turnManager.js` state machine implemented (`tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.8.0 |
 | 005 — Push-Your-Luck Core | 5 | ✅ Done — `gameManager.js` implemented; `turnManager.js` PLAYER_DECISION now externally drivable (`tests/integration/explore-vs-return.test.js` 8/8, `tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.9.0 |
-| 006 — Duplicate / Shipwreck | 6 | ⏳ Not started | — |
+| 006 — Duplicate / Shipwreck | 6 | ✅ Done — `burnManager.js` implemented; `turnManager.js` CHECK_DUPLICATE/SHIPWRECK wired to it (`tests/integration/shipwreck.test.js` 4/4 pass, full suite 62/62) | 0.10.0 |
 | 007 — Collection | 7 | ⏳ Not started | — |
 | 008 — Scoring | 8 | ⏳ Not started | — |
 | 009 — Ability Framework | 9 | ⏳ Not started | — |
@@ -29,6 +29,64 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 006
+
+- `js/burnManager.js`: implemented per GDD §8 Step 3 / §9 — two pure/
+  side-effect-isolated functions:
+  - `isDuplicate(candidateCard, expeditionArea, cardDefinitions)`: looks up
+    each CardInstance's definition via `cardManager.getDefinition()` and
+    compares `type` (GDD §8 says "type/symbol" — verified every
+    definition's `symbol` mirrors its `type` in the current 60-card data,
+    so comparing `type` alone is equivalent). Never compares a card to
+    itself. No side effects.
+  - `triggerShipwreck()`: the aftermath ONLY — moves every card currently
+    in the Expedition Area to Lost Loot (via `cardManager.moveInstance`)
+    and clears the Expedition Area. Does not decide duplicate-ness and
+    does not touch turnHistory/turn advancement (turnManager.js owns
+    both).
+- `js/turnManager.js`:
+  - `checkDuplicate()` now calls `burnManager.isDuplicate()` for real,
+    replacing the old always-false stub.
+  - `shipwreck()` now calls `burnManager.triggerShipwreck()` and records a
+    turnHistory entry (`decision: 'shipwreck', cardsLost`) — mirroring
+    `returnToShip()`'s entry, so every completed turn (safe or not) has
+    exactly one turnHistory entry. This was a necessary addition beyond
+    the prompt's literal text: without it, round-robin/turn-accounting
+    tests silently broke once real Shipwrecks started occurring.
+  - The duplicate's ability never executes because `shipwreck()` is
+    reached directly from `checkDuplicate()`, never from
+    `resolveAbility()` — the call graph itself is the guarantee (rule 6/7
+    in development-rules.md), not a flag checked inside ability
+    resolution.
+  - `startGame()` now retains the card definitions it was given in a new
+    module-private `gameCardDefinitions` variable for the lifetime of the
+    game, since `burnManager.isDuplicate()` needs to resolve each
+    CardInstance's `type` by `defId`, and CardInstances never store their
+    full definition.
+- Turning on real duplicate detection meant several Prompt 004/005 tests
+  that used to pass "by luck" (since the old stub never actually detected
+  a duplicate) needed fixing: `full-loop-stub.test.js`'s card-conservation
+  check now accounts for cards lost to Lost Loot, not just cargo +
+  Expedition Area; its round-robin/every-player assertions now rely on
+  every turn (return OR shipwreck) producing exactly one turnHistory
+  entry; and `explore-vs-return.test.js`'s multi-card explore sequences
+  now prime the front of the live Treasure Deck with cards of
+  guaranteed-distinct types (`primeSafeDraws()`) so they deterministically
+  exercise the "no Shipwreck" path they're testing, rather than depending
+  on a fixed seed never happening to produce a duplicate.
+- `tests/integration/shipwreck.test.js` — 4 tests: `burnManager.isDuplicate()`
+  unit checks (true on shared type, false on distinct types, never
+  compares a card to itself), plus one full integration scenario building
+  a deterministic 3rd-card-duplicates-1st-card's-type deck (via directly
+  overriding `gameState`'s live Treasure Deck after reading back what the
+  seed actually drew for card 1) asserting: Shipwreck triggers; the
+  duplicate's ability never executes (a spy counting RESOLVE_ABILITY phase
+  transitions, snapshotted at the exact moment `EXPEDITION_AREA_CLEARED`
+  fires — proven explicitly, not inferred); Lost Loot grows by exactly the
+  3 cards that were in the Expedition Area; the Expedition Area is empty
+  at that instant; a `'shipwreck'` turnHistory entry is recorded with no
+  player decision; and the turn correctly advances to the next player.
 
 ## Notes on Prompt 005
 

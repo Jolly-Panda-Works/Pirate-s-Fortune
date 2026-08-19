@@ -64,21 +64,21 @@ for (const playerCount of [2, 3, 4]) {
 
     assert.equal(gameState.getPhase(), gameState.PHASES.SCORING);
     assert.equal(gameState.getTreasureDeck().length, 0);
-    // Under the placeholder AI threshold (explore while size < 4), the
-    // Treasure Deck can run dry mid-exploration for the last player to act
-    // — drawCard() folds straight into GAME_END in that case (by design,
-    // see turnManager.js's drawCard doc), so any cards that player was
-    // mid-explore with are legitimately still sitting in the Expedition
-    // Area, never returned to ship. Nothing is lost from the deck though:
-    // every card is accounted for across lostLoot + every player's cargo +
-    // whatever remains in the Expedition Area.
+    // Every one of the 60 total cards (10 initial Lost Loot + 50 initial
+    // Treasure Deck) ends up in exactly one place once the deck is empty:
+    // a player's Ship Cargo, Lost Loot (initial 10 plus anything lost to a
+    // Shipwreck along the way), or — for the last player to act, if the
+    // Treasure Deck happened to run dry mid-explore — still sitting in the
+    // Expedition Area (drawCard() folds straight into GAME_END in that
+    // case; see its doc comment). Nothing may be created or destroyed.
     const totalCargo = gameState.getPlayers().reduce((sum, p) => sum + p.shipCargo.length, 0);
     const expeditionRemaining = gameState.getExpeditionArea().length;
-    assert.equal(totalCargo + expeditionRemaining, 50);
+    const lostLootCount = gameState.getLostLoot().length;
+    assert.equal(totalCargo + expeditionRemaining + lostLootCount, 60);
   });
 }
 
-test('the number of recorded turns is bounded by the Treasure Deck size, with at least one card secured per turn', () => {
+test('the number of recorded turns is bounded by the Treasure Deck size, with valid per-decision fields', () => {
   const players = buildPlayers(2);
   turnManager.startGame(cardDefs, config, players, {
     treasureSeed: 'history-treasure',
@@ -87,13 +87,18 @@ test('the number of recorded turns is bounded by the Treasure Deck size, with at
 
   // Initial Treasure Deck is exactly 50 cards (GDD §5.3). Under the
   // placeholder AI threshold (explore while Expedition Area size < 4),
-  // most turns secure up to 4 cards, so turn count is well under 50 but
-  // always at least 1 and never more than 50.
+  // most turns secure/lose up to 4 cards, so turn count is well under 50
+  // but always at least 1 and never more than 50.
   const history = gameState.getTurnHistory();
   assert.ok(history.length >= 1);
   assert.ok(history.length <= 50);
   for (const entry of history) {
-    assert.ok(entry.cardsSecured >= 1 && entry.cardsSecured <= 4);
+    if (entry.decision === 'return') {
+      assert.ok(entry.cardsSecured >= 1 && entry.cardsSecured <= 4);
+    } else {
+      assert.equal(entry.decision, 'shipwreck');
+      assert.ok(entry.cardsLost >= 1 && entry.cardsLost <= 4);
+    }
   }
 });
 
@@ -123,7 +128,7 @@ test('every player gets at least one turn across a full game', () => {
   assert.equal(seenPlayerIds.size, players.length);
 });
 
-test('every recorded turn history entry is a "return" decision (the only path that appends one)', () => {
+test('every recorded turn history entry is "return" or "shipwreck" — every turn produces exactly one', () => {
   const players = buildPlayers(2);
   turnManager.startGame(cardDefs, config, players, {
     treasureSeed: 'decision-treasure',
@@ -131,8 +136,12 @@ test('every recorded turn history entry is a "return" decision (the only path th
   });
 
   for (const entry of gameState.getTurnHistory()) {
-    assert.equal(entry.decision, 'return');
-    assert.ok(entry.cardsSecured >= 1);
+    assert.ok(entry.decision === 'return' || entry.decision === 'shipwreck');
+    if (entry.decision === 'return') {
+      assert.ok(entry.cardsSecured >= 1);
+    } else {
+      assert.ok(entry.cardsLost >= 1);
+    }
   }
 });
 
