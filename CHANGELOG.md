@@ -7,6 +7,28 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.11.0] - Prompt 007: Collection
+
+### Added
+- `js/collectManager.js` fully implemented (GDD §10): `returnToShip(playerId,
+  cardDefinitions)` moves every card in the Expedition Area into that
+  player's Ship Cargo, merges it with cargo already secured on earlier
+  turns, and re-sorts the FULL merged cargo lowest-to-highest by value
+  (tie-break by type) before clearing the Expedition Area. Aftermath only —
+  mirrors `burnManager.js`'s split for Shipwreck; never touches
+  `turnHistory` or turn advancement.
+- `tests/unit/collect-manager.test.js` — 5 tests: single-expedition sort
+  order, equal-value tie-break by type, cargo staying correctly sorted and
+  undiminished across multiple returns spanning multiple turns (no
+  duplication, no loss), cargo never mixing between players, and an
+  unknown player id throwing.
+
+### Changed
+- `js/turnManager.js`: `returnToShip()` now delegates to
+  `collectManager.returnToShip()` instead of the Prompt 005 inline/unsorted
+  stub. Call sites in `playerDecision()`/`gameManager.returnToShip()` were
+  unaffected.
+
 ## [0.8.0] - Prompt 004: Turn System
 
 ### Added

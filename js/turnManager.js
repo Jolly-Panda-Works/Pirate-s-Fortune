@@ -5,6 +5,7 @@
  * Implemented: Phase 4 (Turn System) — Prompt 004.
  * Updated: Phase 5 (Push-Your-Luck Core) — Prompt 005.
  * Updated: Phase 6 (Duplicate / Shipwreck) — Prompt 006.
+ * Updated: Phase 7 (Collection) — Prompt 007.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -30,6 +31,15 @@
  *    current game, since burnManager.isDuplicate() needs to look up each
  *    CardInstance's `type` by defId and CardInstances only ever store
  *    defId, never the full definition.
+ *
+ * Prompt 007 scope (per docs/prompts/stage-a-core-engine.md, GDD §10):
+ *  - RETURN_TO_SHIP now calls collectManager.returnToShip() (GDD §10):
+ *    Expedition Area cards are merged into the current player's Ship
+ *    Cargo and the FULL merged cargo is re-sorted lowest-to-highest by
+ *    value (tie-break by type) — replacing the Prompt 005 inline/unsorted
+ *    stub. collectManager owns the aftermath only (mirroring burnManager's
+ *    split for Shipwreck); turnManager still owns the turnHistory entry
+ *    and the call to endTurn().
  *
  * Prompt 005 scope (per docs/prompts/stage-a-core-engine.md, GDD §1.1/§2.2):
  *  - PLAYER_DECISION is now real for AI players: a placeholder threshold
@@ -61,6 +71,7 @@ import * as gameState from './gameState.js';
 import * as cardManager from './cardManager.js';
 import * as deckManager from './deckManager.js';
 import * as burnManager from './burnManager.js';
+import * as collectManager from './collectManager.js';
 
 const log = createLogger('turnManager');
 
@@ -285,37 +296,32 @@ function playerDecision() {
 
 /**
  * RETURN_TO_SHIP -> END_TURN.
- * Inline stub (Prompt 005): moves every Expedition Area card into the
- * current player's Ship Cargo (via cardManager.moveInstance, zone ->
- * CARGO, owner -> current player) and clears the Expedition Area.
- * Unsorted — the real, sorted implementation (GDD §10: lowest-to-highest
- * by value, tie-break by type) lands in collectManager.js, Prompt 007,
- * which replaces this function's body; the call site in playerDecision()/
- * gameManager.returnToShip() will not need to change.
+ * GDD §10: delegates the aftermath to collectManager.returnToShip() — moves
+ * every Expedition Area card into the current player's Ship Cargo, merged
+ * with cargo already secured on earlier turns and re-sorted lowest-to-
+ * highest by value (tie-break by type), then clears the Expedition Area.
+ * Replaces the Prompt 005 inline/unsorted stub — the call sites in
+ * playerDecision()/gameManager.returnToShip() did not need to change.
  */
 function returnToShip() {
   gameState.setPhase(PHASES.RETURN_TO_SHIP);
   const current = gameState.getCurrentPlayer();
-  const expeditionCards = gameState.getExpeditionArea();
 
+  let securedCards = [];
   if (current) {
-    const cargoCards = expeditionCards.map((card) =>
-      cardManager.moveInstance(card, cardManager.ZONES.CARGO, current.id)
-    );
-    gameState.updatePlayer(current.id, {
-      shipCargo: [...(current.shipCargo ?? []), ...cargoCards],
-    });
+    securedCards = collectManager.returnToShip(current.id, gameCardDefinitions);
+  } else {
+    gameState.clearExpeditionArea();
   }
 
-  gameState.clearExpeditionArea();
   gameState.addTurnHistoryEntry({
     playerId: current?.id ?? null,
     decision: 'return',
-    cardsSecured: expeditionCards.length,
+    cardsSecured: securedCards.length,
   });
-  log.info('Returned to ship (inline stub — collectManager.js sorts cargo in Prompt 007)', {
+  log.info('Returned to ship', {
     playerId: current?.id,
-    cardsSecured: expeditionCards.length,
+    cardsSecured: securedCards.length,
   });
   return endTurn();
 }

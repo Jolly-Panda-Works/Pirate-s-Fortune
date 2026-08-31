@@ -11,7 +11,7 @@
 | 004 — Turn System | 4 | ✅ Done — `turnManager.js` state machine implemented (`tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.8.0 |
 | 005 — Push-Your-Luck Core | 5 | ✅ Done — `gameManager.js` implemented; `turnManager.js` PLAYER_DECISION now externally drivable (`tests/integration/explore-vs-return.test.js` 8/8, `tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.9.0 |
 | 006 — Duplicate / Shipwreck | 6 | ✅ Done — `burnManager.js` implemented; `turnManager.js` CHECK_DUPLICATE/SHIPWRECK wired to it (`tests/integration/shipwreck.test.js` 4/4 pass, full suite 62/62) | 0.10.0 |
-| 007 — Collection | 7 | ⏳ Not started | — |
+| 007 — Collection | 7 | ✅ Done — `collectManager.js` implemented; `turnManager.js` RETURN_TO_SHIP delegates to it (`tests/unit/collect-manager.test.js` 5/5, full suite 67/67) | 0.11.0 |
 | 008 — Scoring | 8 | ⏳ Not started | — |
 | 009 — Ability Framework | 9 | ⏳ Not started | — |
 | 010 — Single-Resolution Abilities | 10a | ⏳ Not started | — |
@@ -29,6 +29,55 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 007
+
+- `js/collectManager.js`: implemented per GDD §10 — one function,
+  `returnToShip(playerId, cardDefinitions)`, isolated as the aftermath-only
+  counterpart to `burnManager.triggerShipwreck()`:
+  - Moves every card currently in the Expedition Area into `playerId`'s
+    Ship Cargo (`cardManager.moveInstance` → zone `cargo`, owner →
+    `playerId`).
+  - Merges those newly-secured cards with whatever cargo the player
+    already had from earlier turns, then re-sorts the FULL merged array —
+    not just the new cards — lowest-to-highest by `value`, tie-broken by
+    `type` (`compareForCargo()`, exported alongside `returnToShip()` so it
+    can be unit-tested directly if needed). This guarantees cargo stays
+    correctly ordered across many turns, not just sorted once per return.
+  - Does not touch `turnHistory` and does not end the turn — same
+    ownership split as `burnManager.js`: `turnManager.js` still records
+    the `'return'` `turnHistory` entry and calls `endTurn()`.
+  - Throws if `playerId` doesn't match any player in `GameState.players`,
+    rather than silently no-op'ing.
+- `js/turnManager.js`:
+  - `returnToShip()` now calls `collectManager.returnToShip(current.id,
+    gameCardDefinitions)` instead of the Prompt 005 inline/unsorted stub
+    that moved cards into cargo and appended without sorting. The call
+    sites in `playerDecision()` and `gameManager.returnToShip()` did not
+    need to change — this was a pure body swap, per the prompt's own note
+    that Prompt 007 "replaces this function's body" without touching call
+    sites.
+  - `gameCardDefinitions` (the module-private snapshot `startGame()` keeps
+    for the lifetime of the game, originally added in Prompt 006 for
+    `burnManager.isDuplicate()`) is now also read by `returnToShip()`, for
+    the same reason: CardInstances only store `defId`, never `value`/
+    `type` directly, so something has to supply the definitions cargo
+    sorting needs.
+- `tests/unit/collect-manager.test.js` — 5 tests, all operating directly
+  on `collectManager.js` + `gameState.js` (no `turnManager`/`gameManager`
+  involved, since sorting is a pure aftermath concern): a single
+  expedition sorts lowest-to-highest by value; two same-value, different-
+  type cards tie-break alphabetically by type; a two-turn scenario proves
+  cargo secured on an earlier turn survives untouched (same `instanceId`)
+  and the full merged cargo re-sorts correctly after a second return (not
+  just the newly-added cards); two players' cargo never mix; an unknown
+  `playerId` throws instead of silently corrupting state.
+- Existing tests (`explore-vs-return.test.js`, `shipwreck.test.js`,
+  `full-loop-stub.test.js`) needed no changes — none of them asserted
+  cargo *ordering* against the old inline stub, only counts and id sets,
+  so switching to sorted cargo via `collectManager.js` is a
+  backward-compatible behavior change. Full suite: 67/67 passing (up from
+  62/62 before this prompt: +5 for `collect-manager.test.js`).
 
 ## Notes on Prompt 006
 
