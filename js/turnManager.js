@@ -6,6 +6,7 @@
  * Updated: Phase 5 (Push-Your-Luck Core) — Prompt 005.
  * Updated: Phase 6 (Duplicate / Shipwreck) — Prompt 006.
  * Updated: Phase 7 (Collection) — Prompt 007.
+ * Updated: Phase 8 (Scoring) — Prompt 008.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -41,6 +42,16 @@
  *    split for Shipwreck); turnManager still owns the turnHistory entry
  *    and the call to endTurn().
  *
+ * Prompt 008 scope (per docs/prompts/stage-a-core-engine.md, GDD §11/§11.1):
+ *  - SCORING is no longer a terminal stub: it calls
+ *    scoreManager.calculateScore() per player (writing each player's
+ *    `.score` back via gameState.updatePlayer()), then
+ *    scoreManager.determineWinner() over the freshly-scored players, and
+ *    stores { scores, winners } via gameState.setResults(). Reuses
+ *    gameCardDefinitions (see Prompt 006 note below) since calculateScore()
+ *    needs to resolve each Ship Cargo CardInstance's `value`/`type` by
+ *    `defId`.
+ *
  * Prompt 005 scope (per docs/prompts/stage-a-core-engine.md, GDD §1.1/§2.2):
  *  - PLAYER_DECISION is now real for AI players: a placeholder threshold
  *    decision (explore while Expedition Area size < 4, else return —
@@ -72,6 +83,7 @@ import * as cardManager from './cardManager.js';
 import * as deckManager from './deckManager.js';
 import * as burnManager from './burnManager.js';
 import * as collectManager from './collectManager.js';
+import * as scoreManager from './scoreManager.js';
 
 const log = createLogger('turnManager');
 
@@ -356,14 +368,37 @@ function gameEnd() {
 }
 
 /**
- * SCORING — terminal phase for this prompt.
- * Stub: real score calculation/winner determination arrives in
- * scoreManager.js, Prompt 008.
+ * SCORING — terminal phase.
+ * GDD §11/§11.1: computes every player's score via
+ * scoreManager.calculateScore() (writing it back onto each Player record
+ * via gameState.updatePlayer(), since GDD §16's Player shape includes
+ * `score`), determines the winner(s) via scoreManager.determineWinner()
+ * (a length > 1 result means a genuine, fully unresolved tie — GDD §11.1
+ * — not an error), and stores the outcome via gameState.setResults() so
+ * callers never have to re-derive it themselves.
  * @returns {string} PHASES.SCORING
  */
 function scoring() {
   gameState.setPhase(PHASES.SCORING);
-  log.info('SCORING phase reached (stub — scoreManager.js arrives Prompt 008)');
+
+  for (const player of gameState.getPlayers()) {
+    const score = scoreManager.calculateScore(player, gameCardDefinitions);
+    gameState.updatePlayer(player.id, { score });
+  }
+
+  const scoredPlayers = gameState.getPlayers();
+  const winners = scoreManager.determineWinner(scoredPlayers);
+
+  gameState.setResults({
+    scores: Object.fromEntries(scoredPlayers.map((p) => [p.id, p.score])),
+    winners: winners.map((p) => p.id),
+  });
+
+  log.info('SCORING complete', {
+    scores: Object.fromEntries(scoredPlayers.map((p) => [p.id, p.score])),
+    winners: winners.map((p) => p.id),
+  });
+
   return gameState.getPhase();
 }
 

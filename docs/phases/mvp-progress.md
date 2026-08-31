@@ -12,7 +12,7 @@
 | 005 — Push-Your-Luck Core | 5 | ✅ Done — `gameManager.js` implemented; `turnManager.js` PLAYER_DECISION now externally drivable (`tests/integration/explore-vs-return.test.js` 8/8, `tests/integration/full-loop-stub.test.js` 9/9 pass) | 0.9.0 |
 | 006 — Duplicate / Shipwreck | 6 | ✅ Done — `burnManager.js` implemented; `turnManager.js` CHECK_DUPLICATE/SHIPWRECK wired to it (`tests/integration/shipwreck.test.js` 4/4 pass, full suite 62/62) | 0.10.0 |
 | 007 — Collection | 7 | ✅ Done — `collectManager.js` implemented; `turnManager.js` RETURN_TO_SHIP delegates to it (`tests/unit/collect-manager.test.js` 5/5, full suite 67/67) | 0.11.0 |
-| 008 — Scoring | 8 | ⏳ Not started | — |
+| 008 — Scoring | 8 | ✅ Done — `scoreManager.js` implemented; `turnManager.js` SCORING wired to it (`tests/unit/score-manager.test.js` 9/9, full suite 76/76) | 0.12.0 |
 | 009 — Ability Framework | 9 | ⏳ Not started | — |
 | 010 — Single-Resolution Abilities | 10a | ⏳ Not started | — |
 | 010b — Chain Abilities | 10b | ⏳ Not started | — |
@@ -29,6 +29,62 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 008
+
+- `js/scoreManager.js`: implemented per GDD §11/§11.1 as two pure,
+  stateless functions (no `gameState.js` import at all, unlike most other
+  managers — it only ever operates on the Player objects/definitions it's
+  handed):
+  - `calculateScore(player, cardDefinitions)`: walks `player.shipCargo`,
+    resolves each `CardInstance`'s definition via
+    `cardManager.getDefinition()`, and keeps a running best-value-per-type
+    map — the final score is the sum of that map's values. An unknown
+    `defId` is logged and skipped rather than thrown (mirrors
+    `burnManager`'s general "degrade, don't corrupt" posture for
+    malformed input), and an empty cargo correctly scores 0.
+  - `determineWinner(players)`: expects `.score` already populated on each
+    player (by a prior `calculateScore()` call — kept as two functions
+    per the prompt rather than one combined "score and rank" function,
+    so each is independently unit-testable). Filters to the max-score
+    player(s); if more than one, filters further to the max-cargo-count
+    player(s) among those; returns whatever's left — length 1 in the
+    common case, length > 1 only for a genuine, fully unresolved tie
+    (GDD §11.1 doesn't specify anything beyond cargo count, so nothing
+    further is invented).
+- `js/gameState.js`: added the `results` field to `createInitialState()`
+  (so `getStateSnapshot()`/`initState()`/`resetState()` all handle it for
+  free, no special-casing needed) plus a `getResults()` selector and a
+  `setResults()` mutator — the same clone-in/clone-out pattern as every
+  other field, emitting `RESULTS_SET`.
+- `js/turnManager.js`: `scoring()` (previously a Prompt 006-era terminal
+  stub) now does the real work: reads all players, calls
+  `scoreManager.calculateScore()` for each (using `gameCardDefinitions`,
+  the same module-private snapshot `burnManager.isDuplicate()` and
+  `collectManager.returnToShip()` already rely on), writes each score
+  back via `gameState.updatePlayer(id, { score })`, re-reads the
+  now-scored players, calls `scoreManager.determineWinner()`, and stores
+  `{ scores, winners }` via `gameState.setResults()`. `js/gameManager.js`
+  re-exports `getResults()` alongside its other selectors so callers never
+  need to import `gameState.js` directly.
+- `tests/unit/score-manager.test.js` — 9 tests. Three pure
+  `calculateScore()` checks (highest-per-type-only via a 5-card mixed-type
+  cargo, an empty cargo, a single card); four pure `determineWinner()`
+  checks (outright winner, cargo-count tiebreaker, a genuine unresolved
+  tie among 2 of 3 players, an empty `players` array); and two
+  integration checks driven entirely through `gameManager` on a real
+  (seeded) deck — a full 2-player game where each player returns to ship
+  with exactly the one card the game actually dealt them (read back at
+  runtime, not hand-guessed), the Treasure Deck is forced empty right
+  before p2's return so `endTurn()` routes to `GAME_END -> SCORING`
+  immediately, and the resulting `GameState.results` (and each player's
+  `.score`) is asserted against the exact values those specific cards
+  carried; plus confirming `results` stays `null` before `SCORING` is
+  reached.
+- No existing test file needed changes — `results` defaults to `null` and
+  nothing before this prompt asserted anything about it. Full suite:
+  76/76 passing (up from 67/67 before this prompt: +9 for
+  `score-manager.test.js`).
 
 ## Notes on Prompt 007
 

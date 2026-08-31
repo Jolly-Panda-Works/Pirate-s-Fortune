@@ -121,6 +121,7 @@ const {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getResults,
   getStateSnapshot,
   on,
   off,
@@ -144,6 +145,7 @@ export {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getResults,
   getStateSnapshot,
   // events
   on,
@@ -166,6 +168,7 @@ export default {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getResults,
   getStateSnapshot,
   on,
   off,

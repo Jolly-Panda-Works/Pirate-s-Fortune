@@ -62,6 +62,7 @@ function createInitialState() {
     turnHistory: [],
     abilityContext: null,
     config: null,
+    results: null,
   };
 }
 
@@ -172,6 +173,15 @@ function getTurnHistory() {
 
 function getAbilityContext() {
   return clone(state.abilityContext);
+}
+
+/**
+ * GDD §11 final scoring results, set once by scoreManager's caller
+ * (turnManager.js's scoring() step) when the Treasure Deck empties.
+ * null until the game actually reaches SCORING.
+ */
+function getResults() {
+  return clone(state.results);
 }
 
 /**
@@ -302,6 +312,19 @@ function clearAbilityContext() {
   emit('ABILITY_CONTEXT_CLEARED', {});
 }
 
+/**
+ * GDD §11: stores the final scoring results — set by turnManager.js's
+ * scoring() step (via scoreManager.js) once, when the Treasure Deck
+ * empties. Shape is the caller's responsibility (a plain, JSON-serializable
+ * object); gameState.js only stores/clones/emits, matching every other
+ * mutator here.
+ * @param {object} results
+ */
+function setResults(results) {
+  state.results = clone(results);
+  emit('RESULTS_SET', { results: clone(results) });
+}
+
 export {
   PHASES,
   // events
@@ -320,6 +343,7 @@ export {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getResults,
   getStateSnapshot,
   // mutators
   initState,
@@ -337,4 +361,5 @@ export {
   addTurnHistoryEntry,
   setAbilityContext,
   clearAbilityContext,
+  setResults,
 };

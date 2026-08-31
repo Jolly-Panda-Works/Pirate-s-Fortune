@@ -7,6 +7,36 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.12.0] - Prompt 008: Scoring
+
+### Added
+- `js/scoreManager.js` fully implemented (GDD §11/§11.1): pure,
+  stateless — `calculateScore(player, cardDefinitions)` sums only the
+  highest card value per distinct type in a player's Ship Cargo;
+  `determineWinner(players)` picks the highest score, falls back to the
+  most total cargo cards on a tie, and returns every tied player if that's
+  ALSO tied (no invented tiebreaker beyond the GDD).
+- `js/gameState.js`: new `results` GameState field + `getResults()`
+  selector / `setResults()` mutator (emits `RESULTS_SET`), following the
+  same clone-on-read/clone-on-write discipline as every other
+  selector/mutator here.
+- `tests/unit/score-manager.test.js` — 9 tests: highest-per-type-only
+  scoring (including an empty-cargo and a single-card edge case), the
+  cargo-count tiebreaker, a genuine unresolved tie (equal score AND equal
+  cargo count), an empty-players no-op, and a full deterministic
+  2-player game driven end-to-end via `gameManager` (scripted Return to
+  Ship decisions, Treasure Deck forced empty on schedule) asserting the
+  exact expected winner derived from the cards the game actually drew,
+  plus `GameState.results` being `null` before `SCORING`.
+
+### Changed
+- `js/turnManager.js`: `scoring()` is no longer a terminal stub — it now
+  calls `scoreManager.calculateScore()` per player (writing each score
+  back via `gameState.updatePlayer()`), then
+  `scoreManager.determineWinner()`, then `gameState.setResults()`.
+- `js/gameManager.js`: re-exports `getResults()` alongside the other
+  read-only selectors.
+
 ## [0.11.0] - Prompt 007: Collection
 
 ### Added
