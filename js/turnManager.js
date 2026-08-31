@@ -7,6 +7,7 @@
  * Updated: Phase 6 (Duplicate / Shipwreck) — Prompt 006.
  * Updated: Phase 7 (Collection) — Prompt 007.
  * Updated: Phase 8 (Scoring) — Prompt 008.
+ * Updated: Phase 9 (Ability Framework) — Prompt 009.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -41,6 +42,16 @@
  *    stub. collectManager owns the aftermath only (mirroring burnManager's
  *    split for Shipwreck); turnManager still owns the turnHistory entry
  *    and the call to endTurn().
+ *
+ * Prompt 009 scope (per docs/prompts/stage-a-core-engine.md, GDD §12/§13):
+ *  - RESOLVE_ABILITY is no longer a no-op stub: it resolves
+ *    expeditionCard's definition via cardManager.getDefinition() (using
+ *    gameCardDefinitions) and calls
+ *    abilityResolver.resolveAbility(definition, { currentPlayer, reason:
+ *    'reveal' }). No concrete ability handlers are registered yet
+ *    (Prompt 010/010b) — every card currently resolves as a no-op inside
+ *    abilityResolver, which is the correct, explicit behavior for a null
+ *    ability key (Gold Coin) and an unregistered one alike.
  *
  * Prompt 008 scope (per docs/prompts/stage-a-core-engine.md, GDD §11/§11.1):
  *  - SCORING is no longer a terminal stub: it calls
@@ -84,6 +95,7 @@ import * as deckManager from './deckManager.js';
 import * as burnManager from './burnManager.js';
 import * as collectManager from './collectManager.js';
 import * as scoreManager from './scoreManager.js';
+import * as abilityResolver from './abilityResolver.js';
 
 const log = createLogger('turnManager');
 
@@ -253,14 +265,29 @@ function shipwreck(expeditionCard) {
 
 /**
  * RESOLVE_ABILITY -> PLAYER_DECISION.
- * Stub: real ability resolution (abilityResolver.js's Resolution Queue)
- * arrives in Prompt 009. Cards with no ability, like Gold Coin, will
- * legitimately no-op here even after Prompt 009 lands.
+ * GDD §8 Step 4 / §12/§13: resolves expeditionCard's ability (if any) via
+ * abilityResolver.resolveAbility(), which also drains its own internal
+ * Resolution Queue for any further contexts the ability generates (chain
+ * abilities — concrete ones arrive in Prompt 010b, but the framework
+ * handles them uniformly starting now). Looks the card's definition up
+ * via cardManager.getDefinition() since abilityResolver operates on
+ * definitions (for their `.ability` key), never on bare CardInstances.
+ * Cards with no ability (ability key = null, e.g. Gold Coin) legitimately
+ * no-op inside abilityResolver — nothing special is done for them here.
  */
 function resolveAbility(expeditionCard) {
   gameState.setPhase(PHASES.RESOLVE_ABILITY);
-  log.debug('Ability resolution (stub — abilityResolver.js arrives Prompt 009)', {
+  const current = gameState.getCurrentPlayer();
+  const definition = cardManager.getDefinition(gameCardDefinitions, expeditionCard.defId);
+
+  abilityResolver.resolveAbility(definition, {
+    currentPlayer: current,
+    reason: 'reveal',
+  });
+
+  log.debug('Ability resolution complete', {
     instanceId: expeditionCard.instanceId,
+    ability: definition?.ability ?? null,
   });
   return playerDecision();
 }

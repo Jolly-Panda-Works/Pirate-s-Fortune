@@ -7,6 +7,43 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.13.0] - Prompt 009: Ability Framework
+
+### Added
+- `js/abilityManager.js` fully implemented (GDD §12): a minimal registry —
+  `registerAbility(key, handlerFn)` / `getAbility(key)` / `hasAbility(key)`
+  / `resetRegistry()` (test isolation only). Registering a duplicate key,
+  a non-function handler, or an empty key all throw rather than silently
+  misbehaving. `getAbility(null | undefined)` returns `null` — the
+  legitimate "no ability" case (Gold Coin), not an error.
+- `js/abilityResolver.js` fully implemented (GDD §12.1/§13): `buildContext()`
+  fills in every AbilityContext field (`source, currentPlayer,
+  targetPlayer, reason, isForced, isGenerated, parentAbility`) with a safe
+  default; `resolveAbility(cardDefinition, context)` seeds a Resolution
+  Queue with one context and drains it iteratively. Handlers receive
+  `(context, enqueue)` — `enqueue()` is how a chain ability (Sea Serpent
+  generating another Sea Serpent, etc. — concrete versions arrive Prompt
+  010b) extends the SAME queue; `resolveAbility()` never calls itself
+  anywhere in its body, which is what structurally guarantees no
+  uncontrolled recursion (rule 10) rather than a depth counter someone
+  could forget to check.
+- `tests/unit/ability-resolver.test.js` — 10 tests: `abilityManager`
+  register/lookup round-trip, null/unregistered-key no-ops, duplicate/
+  invalid registration throwing; `abilityResolver` null-ability and
+  unregistered-key no-ops; a mock chain ability proving iterative (never
+  recursive) processing via a call-depth counter that never exceeds 1
+  across a 2-hop and a 4-hop chain; and a context-shape check against the
+  GDD §12.1 AbilityContext fields.
+
+### Changed
+- `js/turnManager.js`: `resolveAbility()` (the `RESOLVE_ABILITY` state
+  step) no longer no-ops — it resolves `expeditionCard`'s definition via
+  `cardManager.getDefinition()` and calls
+  `abilityResolver.resolveAbility(definition, { currentPlayer, reason:
+  'reveal' })`. No concrete ability handlers are registered yet (Prompt
+  010/010b), so every card in `data/cards.json` (whether it has a real
+  ability key or `null`) currently resolves as an explicit, logged no-op.
+
 ## [0.12.0] - Prompt 008: Scoring
 
 ### Added

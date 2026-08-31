@@ -13,7 +13,7 @@
 | 006 — Duplicate / Shipwreck | 6 | ✅ Done — `burnManager.js` implemented; `turnManager.js` CHECK_DUPLICATE/SHIPWRECK wired to it (`tests/integration/shipwreck.test.js` 4/4 pass, full suite 62/62) | 0.10.0 |
 | 007 — Collection | 7 | ✅ Done — `collectManager.js` implemented; `turnManager.js` RETURN_TO_SHIP delegates to it (`tests/unit/collect-manager.test.js` 5/5, full suite 67/67) | 0.11.0 |
 | 008 — Scoring | 8 | ✅ Done — `scoreManager.js` implemented; `turnManager.js` SCORING wired to it (`tests/unit/score-manager.test.js` 9/9, full suite 76/76) | 0.12.0 |
-| 009 — Ability Framework | 9 | ⏳ Not started | — |
+| 009 — Ability Framework | 9 | ✅ Done — `abilityManager.js` + `abilityResolver.js` implemented; `turnManager.js` RESOLVE_ABILITY wired (`tests/unit/ability-resolver.test.js` 10/10, full suite 86/86) | 0.13.0 |
 | 010 — Single-Resolution Abilities | 10a | ⏳ Not started | — |
 | 010b — Chain Abilities | 10b | ⏳ Not started | — |
 | 011 — Full Ability Chain Integration Tests | 11 | ⏳ Not started | — |
@@ -29,6 +29,63 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 009
+
+- `js/abilityManager.js`: a bare `Map`-backed registry, deliberately with
+  no `gameState.js` dependency — same "pure helper layer" posture as
+  `cardManager.js`/`scoreManager.js`. `registerAbility()` throws on a
+  duplicate key rather than silently overwriting, since a collision is
+  almost certainly a copy-paste bug in a future ability module, not
+  intentional. `getAbility(null | undefined)` explicitly returns `null`
+  (not throwing, not warning) since a null ability key is a fully
+  legitimate, common case — every Gold Coin, forever.
+- `js/abilityResolver.js`: `resolveAbility(cardDefinition, context)` seeds
+  a local `queue` array with one `buildContext()`-normalized entry and
+  drains it with a plain `while (queue.length > 0)` loop — nothing calls
+  `resolveAbility` from inside `resolveAbility`, anywhere, so the
+  "no recursion" rule (GDD §13, rule 10) is a structural property of the
+  code, not a convention. The `enqueue` closure handlers receive as their
+  second argument pushes onto that exact same array, which is what lets a
+  future chain ability (Sea Serpent generating another Sea Serpent,
+  Prompt 010b) extend resolution without the resolver ever recursing.
+  `source` on an `AbilityContext` is a card DEFINITION (not a
+  `CardInstance`) specifically so `abilityResolver.js` never needs to
+  import `cardManager.js`/know about `defId` — resolving `defId ->
+  definition` stays the caller's job (currently `turnManager.js`, via
+  `cardManager.getDefinition()`), keeping `abilityResolver.js` a pure
+  orchestration layer over `abilityManager.js`'s registry.
+- `js/turnManager.js`: `resolveAbility()` (the `RESOLVE_ABILITY` state
+  step, previously a Prompt 004-era stub noted in Prompt 006) now looks up
+  `expeditionCard`'s definition via `cardManager.getDefinition()` (reusing
+  `gameCardDefinitions`, the same module-private snapshot
+  `burnManager.isDuplicate()` and `collectManager.returnToShip()` already
+  rely on) and calls `abilityResolver.resolveAbility()` with `reason:
+  'reveal'` — matching GDD §12.1's documented reason values. No concrete
+  ability handler modules exist yet (`js/abilities/*.js` arrive in Prompt
+  010/010b), so every real ability key already present in
+  `data/cards.json` (`compass`, `cannon`, `captainShield`, `pirateDagger`,
+  `luckyAnchor`, `seaSerpent`, `treasureMap`, `treasureChestGoldenKey`)
+  currently resolves as an explicit, logged "no handler registered"
+  no-op — never a thrown error, never silently skipped without a trace.
+- `tests/unit/ability-resolver.test.js` — 10 tests, split across
+  `abilityManager` (register/lookup round-trip, null/unregistered-key
+  no-ops, duplicate-key/invalid-handler/empty-key all throwing) and
+  `abilityResolver` (Gold-Coin-shaped null-ability no-op; an unregistered
+  key no-op; a 2-hop mock chain ability proving the call-depth counter
+  never exceeds 1 — i.e. genuinely iterative, not recursive — while still
+  invoking the handler exactly twice and enqueuing exactly one follow-up;
+  a 4-hop fan-out variant proving the same property holds for a longer
+  chain; and a context-shape check confirming every GDD §12.1
+  `AbilityContext` field is present with the documented default).
+- Existing tests needed no changes: `shipwreck.test.js`'s
+  `RESOLVE_ABILITY` phase-transition spy still fires exactly the same
+  number of times (it only counts the phase transition, not what happens
+  inside it), and every full-game integration test (`full-loop-stub`,
+  `explore-vs-return`, `score-manager`) still completes cleanly — the new
+  "no handler registered" warnings are logged, not thrown. Full suite:
+  86/86 passing (up from 76/76 before this prompt: +10 for
+  `ability-resolver.test.js`).
 
 ## Notes on Prompt 008
 
