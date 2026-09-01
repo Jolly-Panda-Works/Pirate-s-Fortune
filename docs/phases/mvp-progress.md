@@ -14,7 +14,7 @@
 | 007 — Collection | 7 | ✅ Done — `collectManager.js` implemented; `turnManager.js` RETURN_TO_SHIP delegates to it (`tests/unit/collect-manager.test.js` 5/5, full suite 67/67) | 0.11.0 |
 | 008 — Scoring | 8 | ✅ Done — `scoreManager.js` implemented; `turnManager.js` SCORING wired to it (`tests/unit/score-manager.test.js` 9/9, full suite 76/76) | 0.12.0 |
 | 009 — Ability Framework | 9 | ✅ Done — `abilityManager.js` + `abilityResolver.js` implemented; `turnManager.js` RESOLVE_ABILITY wired (`tests/unit/ability-resolver.test.js` 10/10, full suite 86/86) | 0.13.0 |
-| 010 — Single-Resolution Abilities | 10a | ⏳ Not started | — |
+| 010 — Single-Resolution Abilities | 10a | ✅ Done — `abilities/compass.js` + `cannon.js` + `captainShield.js` implemented and registered; `turnManager.js` checkDuplicate() wired for Shield (`tests/integration/single-resolution-abilities.test.js` 12/12, full suite 98/98) | 0.14.0 |
 | 010b — Chain Abilities | 10b | ⏳ Not started | — |
 | 011 — Full Ability Chain Integration Tests | 11 | ⏳ Not started | — |
 | 012 — UI (Board Rendering) | 12 | ⏳ Not started | — |
@@ -29,6 +29,80 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 010
+
+- `js/abilities/compass.js`: on resolve, reads `gameState.getTreasureDeck()[0]`
+  (the deck's top — `deckManager.drawFromTreasureDeck()` shifts from that
+  same index) and stores it in `GameState.abilityContext`. Deliberately
+  does nothing else — "the exact previewed card becomes the next draw,
+  must not be replaced" (GDD §14.1) falls out automatically from the fact
+  that nothing between a Compass resolving and the player's next
+  `drawCard()` call ever touches the Treasure Deck, so there was no
+  special-case logic to write for that guarantee; the test file proves it
+  by comparing `instanceId`s, not just `defId`s, across the peek and the
+  subsequent real draw.
+- `js/abilities/cannon.js`: the GDD leaves "eligible rival card" without a
+  named zone, so — documented as a judgment call in the file itself — this
+  targets a rival's Ship Cargo specifically (the only zone where multiple
+  players' cards coexist distinctly; the Expedition Area is single/shared
+  per current turn, so it can never hold "a rival's card" in the first
+  place). "Destroyed" relocates the card to Lost Loot, reusing the
+  existing zone that already means "no longer under any player's
+  control" rather than inventing a new one. Target validation (self-
+  targeting, a stale/nonexistent `targetCardId`) all degrade to a logged
+  no-op instead of throwing, since once real target-selection UI exists
+  (Prompt 014) these become legitimate runtime situations, not programmer
+  bugs.
+- `js/abilities/captainShield.js`: the GDD's positive description
+  ("retroactive protection... interacts with duplicate resolution") is
+  much thinner than its three documented edge cases, which are all about
+  what Shield does NOT do. The implementation adopted here — documented
+  explicitly as an interpretation in the file's own docstring — is a
+  one-time, expedition-scoped flag (`gameState.shieldActive`) that
+  `turnManager.checkDuplicate()` consults: an active shield, hit by any
+  duplicate OTHER than another Captain Shield, absorbs that single
+  duplicate (`burnManager.absorbDuplicateWithShield()` — removes just the
+  offending card to Lost Loot, not the whole expedition) instead of a
+  full Shipwreck, then the flag is spent. This satisfies all three edge
+  cases directly: first-card Shield never sets the flag at all; a
+  Shield-vs-Shield duplicate is explicitly excluded from the absorb path
+  regardless of the flag; and because the flag is single-use, a
+  later, unrelated duplicate goes back to a completely normal, unprotected
+  Shipwreck ("does not grant general immunity").
+- `js/gameState.js`: `shieldActive` added alongside `results` in
+  `createInitialState()` (so every existing selector/snapshot/reset path
+  handles it automatically); reset specifically inside
+  `clearExpeditionArea()` — the one function both Shipwreck and Return to
+  Ship already call — rather than needing a second reset call site
+  anywhere.
+- `js/burnManager.js`: `absorbDuplicateWithShield()` intentionally does
+  NOT check whether the duplicate is another Captain Shield itself — that
+  exclusion lives in `turnManager.checkDuplicate()` instead, by ability
+  key, keeping `burnManager.js` exactly as ability-key-agnostic as
+  `isDuplicate()`/`triggerShipwreck()` already were (rule 4 — no ability/
+  name-based branching inside the rules-comparison layer itself).
+- `js/turnManager.js`: `checkDuplicate()`'s new branch is the ONLY change
+  needed beyond registering the three handlers — Compass and Cannon
+  needed no turnManager changes at all, since `RESOLVE_ABILITY` already
+  (Prompt 009) calls into `abilityResolver` generically for every card.
+  `js/abilities/index.js` (a new, side-effect-only module) is imported
+  once so registration happens automatically for every game entry point
+  and every test that imports `turnManager.js`, without any of them
+  needing to know which ability files currently exist.
+- `tests/integration/single-resolution-abilities.test.js` — 12 tests, all
+  built on the same override-the-deck-then-`drawCard()` technique
+  `shipwreck.test.js` established: `turnManager.startGame()` once (to
+  properly initialize its private `cardDefinitions` snapshot), discard
+  whatever the random `card1` was, then script every following card
+  deterministically. Two tests use `abilityResolver.resolveAbility()`
+  directly (Cannon's positive destroy case and its self-target no-op)
+  since supplying a target isn't something `turnManager`'s automatic path
+  can do yet; everything else goes through the real state machine. One
+  scenario chains six scripted reveals across three `revealSequence()`
+  calls to prove Shield's one-time-use property within a single test.
+  Full suite: 98/98 passing (up from 86/86 before this prompt: +12 for
+  `single-resolution-abilities.test.js`).
 
 ## Notes on Prompt 009
 

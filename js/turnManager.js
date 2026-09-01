@@ -8,6 +8,7 @@
  * Updated: Phase 7 (Collection) — Prompt 007.
  * Updated: Phase 8 (Scoring) — Prompt 008.
  * Updated: Phase 9 (Ability Framework) — Prompt 009.
+ * Updated: Phase 10a (Single-Resolution Abilities) — Prompt 010.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -42,6 +43,23 @@
  *    stub. collectManager owns the aftermath only (mirroring burnManager's
  *    split for Shipwreck); turnManager still owns the turnHistory entry
  *    and the call to endTurn().
+ *
+ * Prompt 010 scope (per docs/prompts/stage-a-core-engine.md, GDD §14.1-14.3):
+ *  - `import './abilities/index.js'` added (side-effect only) so the three
+ *    single-resolution ability handlers (Compass/Cannon/Captain Shield)
+ *    register themselves the moment turnManager.js loads — no other
+ *    change was needed for Compass/Cannon, since RESOLVE_ABILITY already
+ *    (Prompt 009) calls into abilityResolver generically.
+ *  - checkDuplicate() gained the ONE piece of new branching Captain
+ *    Shield's GDD §14.3 behavior actually requires: when
+ *    burnManager.isDuplicate() is true AND gameState.getShieldActive() is
+ *    true AND the duplicate card is not itself another Captain Shield
+ *    (checked here, by ability key, so burnManager stays exactly as
+ *    ability-agnostic as before), the duplicate is absorbed via
+ *    burnManager.absorbDuplicateWithShield() instead of a full Shipwreck,
+ *    then flow goes straight to playerDecision() — never resolveAbility()
+ *    — preserving "a duplicate's own ability never executes" for the
+ *    absorbed card exactly as strictly as for a normal Shipwrecked one.
  *
  * Prompt 009 scope (per docs/prompts/stage-a-core-engine.md, GDD §12/§13):
  *  - RESOLVE_ABILITY is no longer a no-op stub: it resolves
@@ -96,6 +114,7 @@ import * as burnManager from './burnManager.js';
 import * as collectManager from './collectManager.js';
 import * as scoreManager from './scoreManager.js';
 import * as abilityResolver from './abilityResolver.js';
+import './abilities/index.js';
 
 const log = createLogger('turnManager');
 
@@ -214,11 +233,22 @@ function revealCard(drawnCard) {
 }
 
 /**
- * CHECK_DUPLICATE -> SHIPWRECK (duplicate) | RESOLVE_ABILITY (safe).
+ * CHECK_DUPLICATE -> SHIPWRECK (duplicate, no active shield) | PLAYER_DECISION
+ * (duplicate, absorbed by an active Captain Shield) | RESOLVE_ABILITY (safe).
  * GDD §8 Step 3: delegates the actual comparison to burnManager.isDuplicate(),
  * which compares expeditionCard's type against every OTHER card already in
  * the Expedition Area (expeditionCard itself is already in there — it was
  * added by revealCard() before this runs).
+ *
+ * GDD §14.3 Captain Shield: a duplicate is only ever absorbed instead of
+ * triggering Shipwreck when gameState.getShieldActive() is true AND the
+ * duplicate card is not itself a Captain Shield (a Shield-vs-Shield
+ * duplicate is explicitly still a normal Shipwreck — checked here, not
+ * inside burnManager, so burnManager.isDuplicate()/triggerShipwreck() stay
+ * exactly as ability-key-agnostic as every other rule-4-respecting
+ * function in this codebase). Either way — Shipwreck or absorbed — the
+ * duplicate's own ability never executes: this function only ever reaches
+ * resolveAbility() down the "safe" branch.
  */
 function checkDuplicate(expeditionCard) {
   gameState.setPhase(PHASES.CHECK_DUPLICATE);
@@ -229,6 +259,12 @@ function checkDuplicate(expeditionCard) {
   );
 
   if (duplicate) {
+    const duplicateDef = cardManager.getDefinition(gameCardDefinitions, expeditionCard.defId);
+    const isAnotherShield = duplicateDef?.ability === 'captainShield';
+    if (gameState.getShieldActive() && !isAnotherShield) {
+      burnManager.absorbDuplicateWithShield(expeditionCard);
+      return playerDecision();
+    }
     return shipwreck(expeditionCard);
   }
   return resolveAbility(expeditionCard);

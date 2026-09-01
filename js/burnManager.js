@@ -94,6 +94,51 @@ function triggerShipwreck() {
   return lostLootCards;
 }
 
-export { isDuplicate, triggerShipwreck };
+/**
+ * GDD §14.3 Captain Shield: the narrow, one-time exception to Shipwreck.
+ * Called ONLY when turnManager.checkDuplicate() has confirmed all three
+ * conditions hold: isDuplicate() was true, gameState.getShieldActive()
+ * was true, and the duplicate is not itself another Captain Shield (a
+ * Shield-vs-Shield duplicate is explicitly still a normal Shipwreck —
+ * GDD §14.3's "a second Shield is still a normal duplicate" edge case;
+ * that check is the CALLER's responsibility, not this function's, so it
+ * stays symmetric with triggerShipwreck()/isDuplicate() never inspecting
+ * ability keys themselves).
+ *
+ * Unlike triggerShipwreck() (which loses the ENTIRE Expedition Area),
+ * this removes ONLY the duplicate card that triggered detection — to
+ * Lost Loot, same destination Shipwreck uses — leaving every other card
+ * already secured in this expedition untouched. The duplicate's own
+ * ability still never executes (the caller routes straight to
+ * playerDecision(), never resolveAbility(), for the absorbed card,
+ * mirroring how triggerShipwreck() is reached instead of
+ * resolveAbility() — GDD §14.3: "Shield does not grant general immunity
+ * to duplicate detection beyond its specific documented effect", so nothing
+ * about a shielded duplicate behaves as if it had never been a duplicate
+ * at all).
+ *
+ * @param {object} duplicateCard - the CardInstance that triggered
+ *   isDuplicate() === true (already present in the Expedition Area)
+ * @returns {object} the CardInstance as moved into Lost Loot
+ */
+function absorbDuplicateWithShield(duplicateCard) {
+  const remainingExpedition = gameState
+    .getExpeditionArea()
+    .filter((card) => card.instanceId !== duplicateCard.instanceId);
+  const absorbedCard = cardManager.moveInstance(duplicateCard, cardManager.ZONES.LOST_LOOT, null);
 
-export default { isDuplicate, triggerShipwreck };
+  gameState.setExpeditionArea(remainingExpedition);
+  gameState.addToLostLoot([absorbedCard]);
+  gameState.setShieldActive(false);
+
+  log.info('Captain Shield absorbed a duplicate — Shipwreck averted, expedition continues', {
+    absorbedInstanceId: absorbedCard.instanceId,
+    remainingExpeditionSize: remainingExpedition.length,
+  });
+
+  return absorbedCard;
+}
+
+export { isDuplicate, triggerShipwreck, absorbDuplicateWithShield };
+
+export default { isDuplicate, triggerShipwreck, absorbDuplicateWithShield };

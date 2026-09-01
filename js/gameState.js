@@ -4,17 +4,21 @@
  * Responsibility: Owns GameState (single source of truth) and controlled
  * mutators. Implemented: Phase 2 (Game State) — Prompt 002.
  *
- * GDD §6 shape:
+ * GDD §6 shape (extended beyond the doc's literal listing by later
+ * prompts — noted individually below):
  *   GameState
  *   ├── phase
  *   ├── treasureDeck
  *   ├── lostLoot
  *   ├── expeditionArea
+ *   ├── shieldActive   (Prompt 010, GDD §14.3 — Captain Shield's
+ *   │                    expedition-scoped protection flag)
  *   ├── players[]
  *   ├── currentPlayerIndex
  *   ├── turnHistory
  *   ├── abilityContext
- *   └── config
+ *   ├── config
+ *   └── results         (Prompt 008, GDD §11 — final scoring outcome)
  *
  * Rules this module respects (GDD §30):
  *  - Engine-independent (no DOM/browser/Unity APIs in rules code).
@@ -57,6 +61,7 @@ function createInitialState() {
     treasureDeck: [],
     lostLoot: [],
     expeditionArea: [],
+    shieldActive: false,
     players: [],
     currentPlayerIndex: 0,
     turnHistory: [],
@@ -185,6 +190,17 @@ function getResults() {
 }
 
 /**
+ * GDD §14.3: whether Captain Shield's one-time, expedition-scoped
+ * protection is currently active (see js/abilities/captainShield.js for
+ * when it's set, and turnManager.js's checkDuplicate() for how it's
+ * consumed). Always false at the start of a fresh expedition —
+ * clearExpeditionArea() resets it unconditionally.
+ */
+function getShieldActive() {
+  return state.shieldActive;
+}
+
+/**
  * Full read-only snapshot of GameState — for saveManager.js (Phase 20) and
  * debugging/logging only. Still a deep copy; mutating the result has no
  * effect on the real state.
@@ -261,6 +277,12 @@ function addToExpeditionArea(cardInstance) {
 function clearExpeditionArea() {
   const cleared = state.expeditionArea;
   state.expeditionArea = [];
+  // Captain Shield protection (GDD §14.3) is scoped to a single
+  // expedition by definition — clearing the Expedition Area (whether via
+  // Shipwreck or a normal Return to Ship) is the one event that always
+  // marks the end of an expedition, so resetting shieldActive here (one
+  // spot) is sufficient to guarantee it never leaks into the next one.
+  state.shieldActive = false;
   emit('EXPEDITION_AREA_CLEARED', { clearedCount: cleared.length });
 }
 
@@ -325,6 +347,14 @@ function setResults(results) {
   emit('RESULTS_SET', { results: clone(results) });
 }
 
+/**
+ * @param {boolean} active
+ */
+function setShieldActive(active) {
+  state.shieldActive = Boolean(active);
+  emit('SHIELD_ACTIVE_SET', { active: state.shieldActive });
+}
+
 export {
   PHASES,
   // events
@@ -344,6 +374,7 @@ export {
   getTurnHistory,
   getAbilityContext,
   getResults,
+  getShieldActive,
   getStateSnapshot,
   // mutators
   initState,
@@ -362,4 +393,5 @@ export {
   setAbilityContext,
   clearAbilityContext,
   setResults,
+  setShieldActive,
 };

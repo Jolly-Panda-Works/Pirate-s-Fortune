@@ -7,6 +7,60 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.14.0] - Prompt 010: Single-Resolution Abilities
+
+### Added
+- `js/abilities/compass.js` (GDD §14.1): peeks `treasureDeck[0]` and
+  stores it in `GameState.abilityContext` (`{ ability: 'compass',
+  playerId, peekedInstanceId, peekedDefId }`). "The exact previewed card
+  becomes the next draw, never a replacement" is satisfied structurally —
+  the handler only ever reads the deck's top, never mutates it.
+- `js/abilities/cannon.js` (GDD §14.2): destroys one eligible rival Ship
+  Cargo card, relocating it to Lost Loot (no dedicated "destroyed" zone
+  exists; Lost Loot is the existing zone meaning "no longer under any
+  player's control"). Reads `context.targetPlayer`/`context.targetCardId`
+  since real target-selection UI doesn't land until Prompt 014; missing,
+  self-targeted, or nonexistent targets all no-op rather than throwing.
+- `js/abilities/captainShield.js` (GDD §14.3): activates a new,
+  expedition-scoped `gameState.shieldActive` flag — UNLESS this Shield is
+  the very first card of the expedition (that documented edge case grants
+  no protection at all).
+- `js/abilities/index.js`: side-effect-only loader (imports the three
+  ability modules so they self-register) — imported once by
+  `turnManager.js` so every game entry point gets abilities wired up
+  automatically.
+- `js/gameState.js`: new `shieldActive` field, `getShieldActive()`
+  selector, `setShieldActive()` mutator. `clearExpeditionArea()` now also
+  resets `shieldActive` to `false`, since Shield's protection is scoped to
+  exactly one expedition by definition (GDD §14.3's own wording) and every
+  expedition-ending event (Shipwreck or Return to Ship) already calls
+  `clearExpeditionArea()`.
+- `js/burnManager.js`: new `absorbDuplicateWithShield(duplicateCard)` —
+  removes ONLY the triggering duplicate card into Lost Loot (unlike
+  `triggerShipwreck()`, the rest of the expedition survives) and consumes
+  the shield flag.
+- `tests/integration/single-resolution-abilities.test.js` — 12 tests:
+  ability-registration check against `gameConfig.json`'s
+  `abilities.singleResolution` list; Gold Coin's null ability as an
+  end-to-end no-op; Compass's peek/no-replace/Return-to-Ship guarantees
+  (3 tests); Cannon's destroy + all three no-op eligibility paths (4
+  tests, one fully end-to-end through `turnManager` with no target
+  supplied); and all three documented Captain Shield edge cases plus a
+  full "absorbs once, then grants no further protection" scenario (3
+  tests).
+
+### Changed
+- `js/turnManager.js`: `checkDuplicate()` gained one new branch — when a
+  duplicate occurs while `gameState.getShieldActive()` is true AND the
+  duplicate is not itself another Captain Shield (checked here by ability
+  key, so `burnManager.js` stays exactly as ability-agnostic as before),
+  the duplicate is absorbed via `burnManager.absorbDuplicateWithShield()`
+  instead of a full Shipwreck, then flow goes straight to
+  `playerDecision()` — never `resolveAbility()` — so "a duplicate's own
+  ability never executes" still holds exactly as strictly for an absorbed
+  card as for a normally Shipwrecked one. Also now imports
+  `./abilities/index.js` for its registration side effects.
+
 ## [0.13.0] - Prompt 009: Ability Framework
 
 ### Added
