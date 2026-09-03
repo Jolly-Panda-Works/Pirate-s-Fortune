@@ -124,8 +124,18 @@ function buildHumanPlayers() {
 
 test('a full deterministic 2-player game reaches SCORING with the exact expected winner', () => {
   gameManager.startGame(cardDefs, config, buildHumanPlayers(), {
-    treasureSeed: 'score-manager-scenario',
-    lostLootSeed: 'score-manager-scenario-lostloot',
+    // 'score-manager-scenario' was replaced with 'score-manager-v5': with
+    // abilities now real (Prompt 009/010/010b), that seed happened to
+    // deal p2 a Treasure Chest + Golden Key as their only card — which
+    // correctly (GDD §14.8) grants a bonus card from Lost Loot on Return
+    // to Ship, so "score equals that one card's own value" is no longer
+    // a safe assumption for it specifically. 'score-manager-v5' deals
+    // both players a Cannon instead (safe with no target supplied, per
+    // every other test in this codebase — no card-count or score effect
+    // beyond the card's own value), keeping this scenario's simple
+    // one-card-each assumption valid.
+    treasureSeed: 'score-manager-v5',
+    lostLootSeed: 'score-manager-v5-lostloot',
   });
 
   // p1's opening card auto-revealed by startGame(). Read it back so the

@@ -67,16 +67,19 @@ test('resolveAbility: a null-ability card (Gold Coin\'s shape) resolves as a pur
   };
   abilityManager.registerAbility('shouldNeverRun', spy);
 
-  let processedCount;
+  let result;
   assert.doesNotThrow(() => {
-    processedCount = abilityResolver.resolveAbility(goldCoinDef, { reason: 'reveal' });
+    result = abilityResolver.resolveAbility(goldCoinDef, { reason: 'reveal' });
   });
-  assert.equal(processedCount, 1);
+  assert.equal(result.processedCount, 1);
+  assert.equal(result.shipwreckedCard, null);
 });
 
 test('resolveAbility: an unregistered ability key also no-ops rather than throwing', () => {
   const unregisteredDef = { id: 'mystery-v1', type: 'mystery', value: 1, ability: 'notRegistered' };
-  assert.equal(abilityResolver.resolveAbility(unregisteredDef, { reason: 'reveal' }), 1);
+  const result = abilityResolver.resolveAbility(unregisteredDef, { reason: 'reveal' });
+  assert.equal(result.processedCount, 1);
+  assert.equal(result.shipwreckedCard, null);
 });
 
 test('resolveAbility: a mock ability that enqueues a generated context is processed iteratively, never recursively', () => {
@@ -108,14 +111,15 @@ test('resolveAbility: a mock ability that enqueues a generated context is proces
   abilityManager.registerAbility('mockChainAbility', mockChainAbility);
 
   const originSourceDef = { id: 'origin-v1', type: 'origin', value: 1, ability: 'mockChainAbility' };
-  const processedCount = abilityResolver.resolveAbility(originSourceDef, { reason: 'reveal' });
+  const result = abilityResolver.resolveAbility(originSourceDef, { reason: 'reveal' });
 
   assert.equal(invocationCount, 2, 'the mock ability should run once for itself and once for the generated context');
   assert.equal(maxDepthSeen, 1, 'no nested/recursive handler invocation — never more than one on the call stack at once');
   // processedCount counts EVERY queue item: origin (ability runs, enqueues
   // a follow-up) + generated (ability runs again, isGenerated is now
   // true so it does NOT enqueue further — terminates the chain) = 2.
-  assert.equal(processedCount, 2);
+  assert.equal(result.processedCount, 2);
+  assert.equal(result.shipwreckedCard, null);
 });
 
 test('resolveAbility: a chain can generate more than one further context, all still processed iteratively', () => {

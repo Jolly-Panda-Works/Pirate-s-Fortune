@@ -68,6 +68,18 @@ function buildHumanAndAiPlayers() {
  * of them in sequence into the SAME Expedition Area never triggers a
  * duplicate. The rest of the real (already-shuffled) deck follows behind
  * them, untouched.
+ *
+ * Since abilities are real from Prompt 009/010/010b onward, this also
+ * avoids Sea Serpent specifically: every other ability either has no
+ * effect on card COUNTS when resolved without a target (Cannon/Pirate
+ * Dagger/Lucky Anchor/Treasure Map all safely no-op with no target
+ * supplied, matching how the automatic reveal path always calls them —
+ * see each ability's own file) or has no card-count effect at all
+ * (Compass/Captain Shield/Treasure Chest + Golden Key, the last of which
+ * only ever fires on Return to Ship, never a plain reveal). Sea Serpent
+ * is the one exception — it unconditionally forces an additional reveal —
+ * so scenarios in this file that need a predictable, fixed number of
+ * cards in the expedition steer around it specifically.
  * @param {number} count
  * @returns {Array<object>} the primed CardInstance[] (in draw order)
  */
@@ -83,11 +95,12 @@ function primeSafeDraws(count) {
   for (const def of cardDefs) {
     if (chosenDefs.length === count) break;
     if (usedTypes.has(def.type)) continue;
+    if (def.ability === 'seaSerpent') continue;
     usedTypes.add(def.type);
     chosenDefs.push(def);
   }
   if (chosenDefs.length < count) {
-    throw new Error(`primeSafeDraws: cardDefs doesn't contain ${count} additional distinct types`);
+    throw new Error(`primeSafeDraws: cardDefs doesn't contain ${count} additional distinct, non-Sea-Serpent types`);
   }
 
   const primedInstances = chosenDefs.map((def) => cardManager.createCardInstance(def, cardManager.ZONES.DECK));
@@ -161,11 +174,24 @@ test("returnToShip() moves the Expedition Area into the current player's Ship Ca
 
 test('a full round trip (explore twice, return) leaves no cards duplicated or lost between zones', () => {
   gameManager.startGame(cardDefs, config, buildHumanPlayers(), {
-    treasureSeed: 'round-trip',
+    // 'round-trip' was replaced with 'round-trip-2': with abilities now
+    // real (Prompt 009/010/010b), 'round-trip' happened to deal p1 a Sea
+    // Serpent as card1, which can force an UNCONTROLLABLE cascade
+    // (forced reveal -> immediate duplicate -> Shipwreck -> turn already
+    // advanced) entirely inside startGame(), before this test ever
+    // regains control to discard/override anything. 'round-trip-2' deals
+    // a Compass instead, which has no effect on card counts or turn
+    // state, keeping the rest of this scenario controllable.
+    treasureSeed: 'round-trip-2',
     lostLootSeed: 'round-trip-lostloot',
   });
+  // Discard whatever card1 the seed produced and replace it with a fully
+  // controlled, guaranteed-safe opening card instead, so this test's
+  // card-count assertions hold regardless of the underlying seed.
+  gameState.clearExpeditionArea();
   primeSafeDraws(1);
-
+  gameManager.revealNextCard();
+  primeSafeDraws(1);
   gameManager.revealNextCard();
   gameManager.returnToShip();
 

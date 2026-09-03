@@ -300,30 +300,48 @@ function shipwreck(expeditionCard) {
 }
 
 /**
- * RESOLVE_ABILITY -> PLAYER_DECISION.
+ * RESOLVE_ABILITY -> PLAYER_DECISION (safe) | SHIPWRECK (a chain-generated
+ * card turned out to be a duplicate — GDD §14.4-14.6).
  * GDD §8 Step 4 / §12/§13: resolves expeditionCard's ability (if any) via
  * abilityResolver.resolveAbility(), which also drains its own internal
- * Resolution Queue for any further contexts the ability generates (chain
- * abilities — concrete ones arrive in Prompt 010b, but the framework
- * handles them uniformly starting now). Looks the card's definition up
- * via cardManager.getDefinition() since abilityResolver operates on
- * definitions (for their `.ability` key), never on bare CardInstances.
- * Cards with no ability (ability key = null, e.g. Gold Coin) legitimately
- * no-op inside abilityResolver — nothing special is done for them here.
+ * Resolution Queue for any further contexts the ability generates. Looks
+ * the card's definition up via cardManager.getDefinition() since
+ * abilityResolver operates on definitions (for their `.ability` key),
+ * never on bare CardInstances. Cards with no ability (ability key = null,
+ * e.g. Gold Coin) legitimately no-op inside abilityResolver — nothing
+ * special is done for them here.
+ *
+ * Prompt 010b: passes gameCardDefinitions through as resolveAbility()'s
+ * third argument (needed for any chain-generated card the Resolution
+ * Queue introduces — Pirate Dagger/Lucky Anchor/Sea Serpent). If the
+ * returned `shipwreckedCard` is non-null, a chain-generated card
+ * duplicated mid-resolution — that's handled EXACTLY like a normal
+ * duplicate, via this function's own shipwreck(), rather than anything
+ * abilityResolver.js does itself (it never ends a turn).
  */
 function resolveAbility(expeditionCard) {
   gameState.setPhase(PHASES.RESOLVE_ABILITY);
   const current = gameState.getCurrentPlayer();
   const definition = cardManager.getDefinition(gameCardDefinitions, expeditionCard.defId);
 
-  abilityResolver.resolveAbility(definition, {
-    currentPlayer: current,
-    reason: 'reveal',
-  });
+  const result = abilityResolver.resolveAbility(
+    definition,
+    { currentPlayer: current, reason: 'reveal' },
+    gameCardDefinitions
+  );
+
+  if (result.shipwreckedCard) {
+    log.info('A chain-generated card duplicated during ability resolution — Shipwreck required', {
+      instanceId: result.shipwreckedCard.instanceId,
+      defId: result.shipwreckedCard.defId,
+    });
+    return shipwreck(result.shipwreckedCard);
+  }
 
   log.debug('Ability resolution complete', {
     instanceId: expeditionCard.instanceId,
     ability: definition?.ability ?? null,
+    processedCount: result.processedCount,
   });
   return playerDecision();
 }

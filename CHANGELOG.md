@@ -7,6 +7,74 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.15.0] - Prompt 010b: Chain Abilities
+
+### Added
+- `js/abilities/pirateDagger.js` (GDD §14.4): steals a rival's Ship Cargo
+  card and feeds it back into the Resolution Queue via
+  `enqueue({ cardInstance, ... })` — a stolen card is genuinely at risk
+  again (could Shipwreck the whole expedition, itself included).
+- `js/abilities/luckyAnchor.js` (GDD §14.5): replays a card from the
+  CURRENT player's own Ship Cargo the same way. Removing it from cargo
+  (rather than duplicating it there) was a deliberate design decision,
+  documented in the file — a pure freebie wouldn't be an interesting risk.
+- `js/abilities/seaSerpent.js` (GDD §14.6): forces an additional card
+  reveal straight from the Treasure Deck via `deckManager.drawFromTreasureDeck()`,
+  enqueued the same way. Graceful no-op on an empty deck.
+- `js/abilities/treasureMap.js` (GDD §14.7): retrieves a card from Lost
+  Loot into the resolution flow; defaults to the top of Lost Loot when no
+  explicit target is supplied (e.g. when reached via a chain, where the
+  parent context doesn't carry a `targetCardId` to forward). Graceful
+  no-op on an empty Lost Loot.
+- `js/abilities/treasureChestGoldenKey.js` (GDD §14.8): the one ability
+  that triggers on Return to Ship rather than a normal reveal — self-
+  guards on `context.reason === 'returnToShip'` (the registry has no
+  concept of restricting which call site may invoke a key, and the normal
+  reveal pipeline calls every ability generically). Grants a bonus card
+  from the top of Lost Loot — deterministic, not `Math.random()`, to keep
+  seeded games fully reproducible (GDD §25.3).
+- `tests/integration/chain-abilities.test.js` — 16 tests covering all
+  five abilities: Dagger's steal-and-resolve plus a stolen-card-duplicates
+  Shipwreck case and ineligible-target no-ops; Anchor's replay plus an
+  invalid-selection no-op; Sea Serpent's forced reveal, the fact that two
+  Sea Serpents always Shipwreck each other (shared type), a genuine
+  3-card cross-ability cascade (Sea Serpent -> Treasure Map -> Lost Loot),
+  and an empty-deck no-op; Treasure Map's retrieval plus an empty-Lost-
+  Loot no-op; and Treasure Chest + Golden Key's reveal-vs-Return-to-Ship
+  distinction, its bonus grant, and its empty-Lost-Loot no-op. Plus a
+  registration check against gameConfig.json's `abilities.chain` list.
+
+### Changed
+- `js/abilityResolver.js`: the Resolution Queue now distinguishes a plain
+  `enqueue({ source: definition })` (queue another ability invocation,
+  Prompt 009's original behavior) from `enqueue({ cardInstance })` (queue
+  a chain-generated CARD that must run the full Card Resolution Order —
+  enter the Expedition Area, duplicate-check, then its own ability or
+  halt). The latter is handled by the queue-draining loop itself, not by
+  a handler or a recursive `resolveAbility()` call — this module now
+  imports `gameState.js`/`cardManager.js`/`burnManager.js` for that one
+  specific responsibility (a scope expansion from Prompt 009, documented
+  in the file). `resolveAbility()`'s return type changed from a bare
+  `processedCount` number to `{ processedCount, shipwreckedCard }`, so a
+  chain-generated duplicate can be reported back to the caller without
+  abilityResolver.js ever ending a turn itself.
+- `js/turnManager.js`: `resolveAbility()` now passes `gameCardDefinitions`
+  through as `resolveAbility()`'s third argument, and checks the returned
+  `shipwreckedCard` — routing to the EXISTING `shipwreck()` step (unchanged
+  itself) exactly like a normal duplicate, rather than duplicating that
+  logic here or in abilityResolver.js.
+- `js/collectManager.js`: `returnToShip()` now writes secured cards into
+  cargo BEFORE triggering any Treasure Chest + Golden Key among them (via
+  a plain `abilityResolver.resolveAbility()` call, `reason: 'returnToShip'`)
+  so its handler's own bonus-card mutation isn't silently overwritten by
+  this function's final sorted write; the final sort/write happens once,
+  after all such triggers, so a bonus card ends up correctly positioned.
+- `js/abilities/index.js`: imports the five new files for their
+  registration side effects.
+- Several pre-Prompt-010b tests assumed abilities were no-ops and needed
+  updates now that they're real — see "Notes on Prompt 010b" below for
+  the specific fixes and the seed changes involved.
+
 ## [0.14.0] - Prompt 010: Single-Resolution Abilities
 
 ### Added

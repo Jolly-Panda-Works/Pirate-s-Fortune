@@ -15,7 +15,7 @@
 | 008 — Scoring | 8 | ✅ Done — `scoreManager.js` implemented; `turnManager.js` SCORING wired to it (`tests/unit/score-manager.test.js` 9/9, full suite 76/76) | 0.12.0 |
 | 009 — Ability Framework | 9 | ✅ Done — `abilityManager.js` + `abilityResolver.js` implemented; `turnManager.js` RESOLVE_ABILITY wired (`tests/unit/ability-resolver.test.js` 10/10, full suite 86/86) | 0.13.0 |
 | 010 — Single-Resolution Abilities | 10a | ✅ Done — `abilities/compass.js` + `cannon.js` + `captainShield.js` implemented and registered; `turnManager.js` checkDuplicate() wired for Shield (`tests/integration/single-resolution-abilities.test.js` 12/12, full suite 98/98) | 0.14.0 |
-| 010b — Chain Abilities | 10b | ⏳ Not started | — |
+| 010b — Chain Abilities | 10b | ✅ Done — 5 chain ability handlers implemented, registered, wired into a Resolution Queue that now supports chain-generated cards (`tests/integration/chain-abilities.test.js` 16/16, full suite 114/114) | 0.15.0 |
 | 011 — Full Ability Chain Integration Tests | 11 | ⏳ Not started | — |
 | 012 — UI (Board Rendering) | 12 | ⏳ Not started | — |
 | 013 — Card Interaction | 13 | ⏳ Not started | — |
@@ -29,6 +29,108 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 010b
+
+- The architectural crux of this prompt: chain abilities (Dagger/Anchor/
+  Sea Serpent) need to introduce a real CARD that goes through the FULL
+  Card Resolution Order (enter the Expedition Area, duplicate-check, then
+  its own ability or halt) — but abilityResolver.js's Resolution Queue
+  (Prompt 009) only knew how to invoke an ability's handler, not perform
+  expedition-entry/duplicate-checking. Rather than have handlers import
+  turnManager.js (a real circular-import risk: turnManager -> abilities/
+  index.js -> a chain ability file -> turnManager) or recurse into
+  resolveAbility(), the fix was to teach the QUEUE-DRAINING LOOP ITSELF a
+  second context shape: `enqueue({ cardInstance, ... })` (as opposed to
+  `enqueue({ source: definition, ... })`). When the loop pops a
+  `cardInstance`-bearing context, IT does the introduce-and-duplicate-
+  check step directly (needing `gameState.js`/`cardManager.js`/
+  `burnManager.js`, a scope expansion from Prompt 009 documented in the
+  file's own header), then invokes the introduced card's ability inline —
+  still just one more iteration of the same `while` loop, never a nested
+  call. This required `resolveAbility()`'s signature to grow a third
+  `cardDefinitions` argument (to resolve an introduced CardInstance's own
+  `.ability`) and its return type to become `{ processedCount,
+  shipwreckedCard }` — a chain-generated duplicate halts the queue
+  immediately (nothing further in it can matter) and reports which card
+  caused it, rather than abilityResolver.js ever calling
+  `triggerShipwreck()`/ending a turn itself; `turnManager.js`'s
+  `resolveAbility()` checks that return value and routes to its own
+  existing `shipwreck()` step exactly as it would for a normal duplicate.
+- `js/abilities/pirateDagger.js` / `luckyAnchor.js`: near-identical shape
+  to Cannon (Prompt 010) for target validation (missing/self-targeted/
+  nonexistent all no-op, logged, not thrown), but instead of relocating
+  to Lost Loot, the card is hand off to `enqueue({ cardInstance })` — it
+  re-enters the SAME expedition currently resolving, ownerId reset to
+  `null` by the queue loop (matching how a freshly-drawn deck card
+  behaves) regardless of which player's cargo it came from.
+- `js/abilities/seaSerpent.js`: reuses `deckManager.drawFromTreasureDeck()`
+  (the exact function every normal draw already uses) rather than
+  reimplementing deck-shift logic. Its docstring originally claimed a
+  forced reveal that's ALSO a Sea Serpent "continues the chain" — testing
+  that revealed it's actually IMPOSSIBLE: every Sea Serpent card shares
+  the single type `"seaSerpent"`, so a second one always duplicates the
+  first and halts the queue (Shipwreck) before its own ability would ever
+  run. The docstring and the test suite were both corrected to reflect
+  this — chaining only continues into a DIFFERENT, not-yet-present type.
+- `js/abilities/treasureMap.js`: given no explicit `targetCardId` (which
+  happens whenever it's reached via a chain — the forwarded context
+  doesn't carry one), defaults to the top of Lost Loot rather than no-
+  op'ing — this is what makes the cross-ability cascade test (Sea Serpent
+  forcing a Treasure Map, which then retrieves from Lost Loot on its own)
+  work without any special-casing for the "reached via chain" scenario.
+- `js/abilities/treasureChestGoldenKey.js`: the one ability NOT invoked
+  from the normal reveal pipeline's perspective at all — it self-guards
+  on `context.reason === 'returnToShip'` because the ability registry has
+  no mechanism to restrict WHICH call site may invoke a given key, and
+  turnManager's `resolveAbility()` step calls `abilityResolver.resolveAbility()`
+  generically for every revealed card regardless of its ability. Testing
+  surfaced this as a genuine bug on the first pass (the bonus was firing
+  on a plain reveal); the `reason` guard fixed it. Its "random" draw was
+  also originally `Math.random()`, which broke this codebase's
+  determinism guarantee (GDD §25.3) for any seeded game containing this
+  card — changed to "top of Lost Loot" (Lost Loot's own order already
+  came from a seeded shuffle at deck-build time, so this is still
+  effectively unpredictable to a player, just deterministic to the
+  engine and its tests).
+- `js/collectManager.js`: `returnToShip()`'s ordering had to change —
+  secured cards are now written into `player.shipCargo` BEFORE any
+  Treasure Chest + Golden Key trigger (whose handler reads/writes that
+  same array directly), with the final sort happening once, afterward,
+  over whatever cargo (including any bonus card) resulted.
+- **Fallout from turning real abilities on** — several tests written
+  before Prompt 009/010/010b assumed ability resolution was a no-op stub;
+  making it real surfaced their hidden assumptions:
+  - `tests/unit/ability-resolver.test.js` (Prompt 009): three assertions
+    compared `resolveAbility(...)` directly against a number; updated to
+    check `.processedCount`/`.shipwreckedCard` on the new return shape.
+  - `tests/integration/explore-vs-return.test.js`'s round-trip test: its
+    `treasureSeed: 'round-trip'` happened to deal p1 a Sea Serpent as
+    card1, which forces an UNCONTROLLABLE cascade (forced reveal ->
+    immediate duplicate -> Shipwreck -> turn already advanced) entirely
+    inside `startGame()`, before the test ever regains control to
+    discard/override anything — no amount of post-hoc `gameState`
+    manipulation can undo that. Fixed by switching to `'round-trip-2'`
+    (empirically confirmed to deal a harmless Compass instead) and having
+    the test explicitly discard-and-rebuild its own controlled opening
+    cards rather than trusting the seed's card1 at all. Its own
+    `primeSafeDraws()` helper also now skips the `seaSerpent` ability
+    specifically, since Sea Serpent is the one ability that changes card
+    counts even with no target supplied.
+  - `tests/unit/score-manager.test.js`'s full-game test: its seed dealt
+    p2 a Treasure Chest + Golden Key as their only card, which correctly
+    (GDD §14.8) now grants a bonus card on Return to Ship — invalidating
+    the test's "score equals that one card's own value" assumption for a
+    reason that isn't a bug, just a newly-correct behavior the seed
+    happened to exercise. Fixed by switching to a seed (`'score-manager-v5'`)
+    that deals both players a Cannon instead (safe, no card-count effect
+    without a target).
+  Every seed swap and its reasoning is documented inline in the affected
+  test file, not just here.
+- Full suite: 114/114 passing (up from 98/98 before this prompt: +16 for
+  `chain-abilities.test.js`, with zero net change to any other file's
+  test count — the ability-resolver/explore-vs-return/score-manager fixes
+  above updated existing assertions rather than adding new ones).
 
 ## Notes on Prompt 010
 

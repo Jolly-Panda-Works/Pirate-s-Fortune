@@ -13,11 +13,15 @@
  * a full turn) gets abilities registered automatically without needing
  * to know which ability files currently exist.
  *
- * Grows as later prompts add abilities/*.js files (Prompt 010b adds the
- * five chain abilities) — nothing outside this file needs to change when
- * that happens.
+ * Grows as later prompts add abilities/*.js files — nothing outside this
+ * file needs to change when that happens.
  */
 
 import './compass.js';
 import './cannon.js';
 import './captainShield.js';
+import './pirateDagger.js';
+import './luckyAnchor.js';
+import './seaSerpent.js';
+import './treasureMap.js';
+import './treasureChestGoldenKey.js';
