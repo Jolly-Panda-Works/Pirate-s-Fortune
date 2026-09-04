@@ -16,7 +16,7 @@
 | 009 — Ability Framework | 9 | ✅ Done — `abilityManager.js` + `abilityResolver.js` implemented; `turnManager.js` RESOLVE_ABILITY wired (`tests/unit/ability-resolver.test.js` 10/10, full suite 86/86) | 0.13.0 |
 | 010 — Single-Resolution Abilities | 10a | ✅ Done — `abilities/compass.js` + `cannon.js` + `captainShield.js` implemented and registered; `turnManager.js` checkDuplicate() wired for Shield (`tests/integration/single-resolution-abilities.test.js` 12/12, full suite 98/98) | 0.14.0 |
 | 010b — Chain Abilities | 10b | ✅ Done — 5 chain ability handlers implemented, registered, wired into a Resolution Queue that now supports chain-generated cards (`tests/integration/chain-abilities.test.js` 16/16, full suite 114/114) | 0.15.0 |
-| 011 — Full Ability Chain Integration Tests | 11 | ⏳ Not started | — |
+| 011 — Full Ability Chain Integration Tests | 11 | ✅ Done — Stage A complete: `tests/integration/ability-chains.test.js` (all 8 abilities in full-game scenarios, 14/14) + `tests/scenarios/full-game-scenario.test.js` (Stage A completion gate, 7/7); full suite 135/135 | 0.16.0 |
 | 012 — UI (Board Rendering) | 12 | ⏳ Not started | — |
 | 013 — Card Interaction | 13 | ⏳ Not started | — |
 | 014 — Modal System | 14 | ⏳ Not started | — |
@@ -29,6 +29,75 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 011 — Stage A complete
+
+- `tests/integration/ability-chains.test.js` (14 tests): deliberately
+  does NOT re-cover the per-ability eligibility/no-op edge cases already
+  proven in `tests/unit/ability-resolver.test.js` and
+  `tests/integration/{single-resolution,chain}-abilities.test.js` (all
+  three files stay in the suite untouched). Its job is what only makes
+  sense once every ability exists together: a rival's SUBSEQUENT state
+  (cargo AND `scoreManager.calculateScore()`) after Cannon/Dagger touch
+  it; Lucky Anchor replaying a card whose OWN ability then chains further
+  (a Sea Serpent replayed from cargo, forcing one more reveal); a
+  mixed-ability combined chain (Dagger -> Sea Serpent -> a SECOND Dagger,
+  which duplicates the first and halts — proving the queue handles a
+  chain that ISN'T just one ability repeating itself); and a Sea-Serpent-
+  shaped mock-ability call-depth-counter test (reusing Prompt 009's
+  technique) proving the Resolution Queue never recurses 3+ hops deep —
+  a REAL Sea Serpent can never chain into a third one (every Sea Serpent
+  shares one type, so a second always duplicates the first before its own
+  ability runs — see `js/abilities/seaSerpent.js`), so a mock is what
+  actually lets the depth check go past 2 hops; a separate, real 3-card
+  cascade (Sea Serpent -> Treasure Map -> a Cannon retrieved from Lost
+  Loot) proves every hop of a real chain completes the full Card
+  Resolution Order, not just the first.
+- `tests/scenarios/full-game-scenario.test.js` (7 tests) — the Stage A
+  completion gate from `docs/prompts/stage-a-core-engine.md`'s Prompt 011
+  exit criteria. Full 2/3/4-player all-AI games (a fixed seed per
+  scenario; every decision resolved by turnManager's own placeholder AI
+  threshold — "unscripted decision, deterministic deck") run GAME_INIT
+  through SCORING unattended, each checked for: card conservation (Lost
+  Loot + any abandoned Expedition Area cards + every player's cargo sums
+  to the full 60 — see the note below on why "abandoned Expedition Area
+  cards" is in that sum); no duplicated `instanceId` across zones; every
+  stored `.score` matching an independent `scoreManager.calculateScore()`
+  recomputation; `GameState.results.winners` matching an independent
+  `scoreManager.determineWinner()`; and the winner's score verified >=
+  every other player's. A same-seed-twice run also confirms
+  `turnHistory`/`results` are byte-for-byte `deepEqual` (GDD §25.3). Two
+  further tests are the literal remaining Prompt 011 exit-criteria
+  checks: no ability key in `data/cards.json` is unregistered, and no
+  Stage A engine file (an explicit list — `gameState.js`, `cardManager.js`,
+  `deckManager.js`, `burnManager.js`, `collectManager.js`,
+  `scoreManager.js`, `abilityManager.js`, `abilityResolver.js`,
+  `turnManager.js`, `gameManager.js`, `iconManager.js`, `abilities/*.js`
+  — deliberately excluding `main.js` and the Phase 12+/14/17/18/19/20 UI
+  stub files, which are documented in their own headers as legitimately
+  out of Stage A's scope) references `document.`/`window.`/etc.
+- Writing the scenario test surfaced (no engine code changed) that an
+  all-AI 3/4-player game can legitimately finish SCORING with cards still
+  sitting in the Expedition Area: `turnManager.drawCard()`'s DRAW_CARD
+  step folds straight into `endTurn()` when the Treasure Deck runs dry
+  mid-explore (existing Prompt 004/005 behavior, documented in that
+  function's own docstring) — those cards are simply abandoned, never
+  secured or Shipwrecked. This is the exact same accepted behavior
+  `tests/integration/full-loop-stub.test.js` was already written around
+  (its Prompt 005 notes: "a card-conservation check ... replaced the old
+  'Expedition Area always empty at game end' assumption, since the
+  Treasure Deck can now run out mid-explore for the last player to act").
+  The new scenario test's conservation check folds any such leftover
+  cards into its sum rather than asserting the Expedition Area is always
+  empty at SCORING.
+- No existing test file needed changes. Full suite: 135/135 passing (up
+  from 114/114 before this prompt: +14 for `ability-chains.test.js`, +7
+  for `full-game-scenario.test.js`).
+- **Stage A — Core Gameplay Engine is now complete.** All 11 prompts in
+  `docs/prompts/stage-a-core-engine.md` are done; every Prompt 011 exit
+  criterion is met and covered by an automated test. Stage B (UI, Phase
+  12+) can begin without further changes to `js/gameState.js`'s public
+  shape.
 
 ## Notes on Prompt 010b
 

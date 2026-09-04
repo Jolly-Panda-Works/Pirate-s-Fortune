@@ -7,6 +7,107 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.16.0] - Prompt 011: Full Ability Chain Integration Tests — Stage A complete
+
+### Added
+- `tests/integration/ability-chains.test.js` — 14 tests exercising ALL
+  EIGHT card abilities inside full-game scenarios (real multi-player
+  state, a rival's SUBSEQUENT state after being targeted, and combined/
+  mixed-ability chains), distinct from the per-ability edge-case coverage
+  already in tests/unit/ability-resolver.test.js and
+  tests/integration/{single-resolution,chain}-abilities.test.js (kept,
+  not duplicated here):
+  - Registration: all 8 ability keys (singleResolution + chain) match
+    data/cards.json exactly.
+  - Compass: previewed card is exactly the next reveal, driven through
+    the real public API (`gameManager.revealNextCard()`).
+  - Cannon: destroys a rival's Ship Cargo card (GDD §14.2 names no
+    zone — targets Ship Cargo per Prompt 010's documented decision); the
+    rival's cargo AND `scoreManager.calculateScore()` both reflect it.
+  - Captain Shield: first-card-of-an-expedition protects nothing vs. a
+    later reveal that protects as designed, inside one continuous
+    2-player game.
+  - Pirate Dagger: steals a rival cargo card (permanent loss, proven via
+    score); a stolen card that duplicates halts resolution — proven its
+    own ability never runs by checking `GameState.abilityContext` stays
+    `null` (an ability-bearing stolen card, not a null-ability Gold Coin).
+  - Lucky Anchor: replaying a card from cargo (a Sea Serpent) triggers
+    that card's OWN ability (forcing a further reveal) — chained, not
+    recursive.
+  - Sea Serpent: a mock-ability call-depth counter (reusing Prompt 009's
+    technique) proves the Resolution Queue never recurses 3+ hops deep —
+    a real Sea Serpent can never chain into a THIRD Sea Serpent (shared
+    type always duplicates the second one), so a mock is what actually
+    lets this go deep; plus a REAL 3-card cascade (Sea Serpent ->
+    Treasure Map -> a Cannon retrieved from Lost Loot) proving every hop
+    completes the full Card Resolution Order, not just the first.
+  - Treasure Map: retrieves a card from Lost Loot mid-expedition, later
+    actually secured via Return to Ship; empty Lost Loot no-ops.
+  - Treasure Chest + Golden Key: bonus card from Lost Loot on Return to
+    Ship, reflected in `scoreManager.calculateScore()`; empty Lost Loot
+    grants no bonus.
+  - Combined: a Dagger steal triggers a Sea Serpent that forces a SECOND
+    Dagger — the second Dagger duplicates the first (already in the
+    expedition) and halts resolution, proving the queue correctly handles
+    a MIXED-ability chain (dagger -> seaSerpent -> dagger), not just one
+    ability repeating itself.
+- `tests/scenarios/full-game-scenario.test.js` — 7 tests, the Stage A
+  completion gate (docs/prompts/stage-a-core-engine.md's Prompt 011 exit
+  criteria):
+  - Full 2/3/4-player all-AI games, each with a fixed seed
+    ("unscripted-decision-but-deterministic-deck" — every
+    PLAYER_DECISION resolves via turnManager's own placeholder AI
+    threshold, nothing here hand-picks a card), run GAME_INIT through
+    SCORING unattended and are asserted internally consistent: card
+    conservation across Lost Loot/(any abandoned) Expedition Area/every
+    player's cargo sums to the full 60; no instanceId is duplicated
+    across zones; every player's stored `.score` matches an independent
+    `scoreManager.calculateScore()` recomputation; `GameState.results
+    .winners` matches an independent `scoreManager.determineWinner()`;
+    and the winner's score is verified >= every other player's (the
+    actual definition of "a correct winner").
+  - A same-seed-twice determinism check (turnHistory + results
+    `deepEqual` across two independent runs — GDD §25.3).
+  - "No ability key in data/cards.json is unregistered."
+  - "No file in js/ imports anything DOM-related" — scoped to the actual
+    Stage A deliverable files (gameState/cardManager/deckManager/
+    burnManager/collectManager/scoreManager/abilityManager/
+    abilityResolver/turnManager/gameManager/iconManager/abilities/*);
+    deliberately excludes main.js and the Phase 12+/14/17/18/19/20 UI
+    stub files (uiManager.js, modalManager.js, etc.), which are
+    documented in their own headers as future-phase scaffolding outside
+    Stage A's scope and already legitimately reference `document.` once
+    (main.js) ahead of their own phase.
+
+### Fixed / discovered (no code change — documented as accepted behavior)
+- Writing `full-game-scenario.test.js` surfaced that an all-AI 3/4-player
+  game can legitimately end with cards still sitting in the Expedition
+  Area: `turnManager.drawCard()`'s DRAW_CARD step folds straight into
+  `endTurn()` when the Treasure Deck runs dry (its existing, Prompt
+  004/005-era behavior — see that function's own docstring), which can
+  happen mid-explore, after a player has already revealed some cards this
+  turn but before Returning to Ship or hitting a duplicate. Those
+  cards are simply abandoned (never secured, never Shipwrecked) — this
+  was already the accepted behavior `tests/integration/full-loop-stub
+  .test.js` was written around (Prompt 005's notes: "a card-conservation
+  check ... replaced the old 'Expedition Area always empty at game end'
+  assumption, since the Treasure Deck can now run out mid-explore for the
+  last player to act"). This prompt's scenario test's conservation check
+  was written to fold in any such leftover cards rather than assert the
+  Expedition Area is always empty at SCORING — no engine code changed.
+- Full suite: 135/135 passing (up from 114/114 before this prompt: +14
+  for `ability-chains.test.js`, +7 for `full-game-scenario.test.js`).
+
+### Stage A — Core Gameplay Engine: complete
+All 11 prompts of `docs/prompts/stage-a-core-engine.md` are now done. A
+full, deterministic-deck, unscripted-decision 2-4 player game runs start
+to finish with a correct winner; every one of the 8 abilities is
+exercised at least once across the test suite; no ability key in
+data/cards.json is unregistered; no Stage A file imports anything
+DOM-related. Stage B (UI, Phase 12+) can now begin without further
+changes to `js/gameState.js`'s public shape (per the "UI never mutates
+GameState directly" rule this whole stage was built to guarantee).
+
 ## [0.15.0] - Prompt 010b: Chain Abilities
 
 ### Added
