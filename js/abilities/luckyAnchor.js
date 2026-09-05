@@ -6,10 +6,12 @@
  * chain ability — GDD §13).
  * Implemented: Phase 10b (Chain Abilities) — Prompt 010b.
  *
- * Card-selection UI doesn't exist yet (arrives Prompt 014) — the card is
- * accepted directly on the AbilityContext:
+ * Target selection (Prompt 014 — modalManager.js) supplies the card via
+ * the AbilityContext, exactly as it always has:
  *   context.cargoCardId - the instanceId of the CardInstance, within the
  *                         CURRENT player's own Ship Cargo, to replay
+ * This module's own getEligibleTargets() (below) is what modalManager.js
+ * (via turnManager.js) uses to render the actual selectable list.
  *
  * Design decision (GDD §14.5 doesn't spell out whether "replay" removes
  * the card from cargo or duplicates it there): removing it is the only
@@ -54,7 +56,7 @@ function handleLuckyAnchor(context, enqueue) {
   const cargoCardId = context.cargoCardId ?? null;
 
   if (!currentPlayerId || !cargoCardId) {
-    log.info('Lucky Anchor: no cargo card selected — no-op (real selection UI arrives Prompt 014)', {
+    log.info('Lucky Anchor: no cargo card selected — no-op (AI targeting arrives Prompt 015; a human with an empty own cargo also lands here)', {
       currentPlayerId,
     });
     return;
@@ -92,6 +94,21 @@ function handleLuckyAnchor(context, enqueue) {
   });
 }
 
-abilityManager.registerAbility('luckyAnchor', handleLuckyAnchor);
+/**
+ * Every currently-eligible Anchor target: one entry per card in the
+ * CURRENT player's own Ship Cargo (GDD §14.5 — "replay a card from Ship
+ * Cargo"). Prompt 014: this is what modalManager.js renders as the
+ * selection list.
+ *
+ * @param {string} currentPlayerId
+ * @returns {Array<{cargoCardId: string, defId: string}>}
+ */
+function getEligibleTargets(currentPlayerId) {
+  const player = gameState.getPlayer(currentPlayerId);
+  if (!player) return [];
+  return (player.shipCargo ?? []).map((card) => ({ cargoCardId: card.instanceId, defId: card.defId }));
+}
 
-export { handleLuckyAnchor };
+abilityManager.registerAbility('luckyAnchor', handleLuckyAnchor, { getEligibleTargets });
+
+export { handleLuckyAnchor, getEligibleTargets };

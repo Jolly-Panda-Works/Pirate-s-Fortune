@@ -19,7 +19,7 @@
 | 011 — Full Ability Chain Integration Tests | 11 | ✅ Done — Stage A complete: `tests/integration/ability-chains.test.js` (all 8 abilities in full-game scenarios, 14/14) + `tests/scenarios/full-game-scenario.test.js` (Stage A completion gate, 7/7); full suite 135/135 | 0.16.0 |
 | 012 — UI (Board Rendering) | 12 | ✅ Done — `js/uiManager.js` read-only renderer + zone markup/CSS; manual + shimmed-DOM smoke test confirms live re-render on every gameState event, no console errors | 0.17.0 |
 | 013 — Card Interaction | 13 | ✅ Done — `js/inputManager.js` (single action-dispatch seam) + `js/uiManager.js` click wiring; a simulated click-only playthrough (shimmed DOM) reaches SCORING with a correct result | 0.18.0 |
-| 014 — Modal System | 14 | ⏳ Not started | — |
+| 014 — Modal System | 14 | ✅ Done — `js/modalManager.js` + `css/modal.css`; new `PLAYER_CHOICE` phase in `turnManager.js`/`gameState.js` for real Cannon/Dagger/Anchor/Map target selection; click+modal DOM-shim playthrough across 14 seeds reaches SCORING cleanly | 0.19.0 |
 | 015 — AI | 19 | ⏳ Not started | — |
 | 016 — Localization | 15 | ⏳ Not started | — |
 | 017 — Responsive / Landscape UI | 16 | ⏳ Not started | — |
@@ -29,6 +29,122 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 014 — Modal System
+
+- **Core architectural addition**: a new `PHASES.PLAYER_CHOICE` phase
+  (`gameState.js`) — the same "pause point + resume function" pattern
+  `PLAYER_DECISION` already uses for Explore Further/Return to Ship, now
+  applied to targeted-ability resolution. `turnManager.js`'s
+  `resolveAbility()` (the RESOLVE_ABILITY step) now checks, generically
+  and with zero hard-coded ability names,
+  `abilityManager.needsTargetSelection(abilityKey)` +
+  `abilityManager.getEligibleTargets(abilityKey, currentPlayerId)`: a
+  human current player with ≥1 real eligible option pauses at
+  PLAYER_CHOICE (storing the request via the new
+  `gameState.setPendingAbilityChoice()`); anything else (an AI player —
+  real AI targeting is Prompt 015's own "same code path, different input
+  source" — a human with nothing eligible, or a non-targeted ability like
+  Compass/Captain Shield/Sea Serpent/Treasure Chest+Golden Key) resolves
+  immediately exactly as Stage A left it. A new `resolveAbilityChoice()`
+  resumes the pause — validates the selection against the pending
+  options, builds the AbilityContext generically from whichever fields
+  the selection itself carries (`targetPlayerId`/`targetCardId` for
+  Cannon/Dagger/Map, `cargoCardId` for Anchor — never a per-ability
+  switch), and continues through the SAME shared tail
+  (`finishResolveAbility()`) the no-pause path also uses.
+- `js/abilityManager.js`: extended with an optional per-ability
+  `getEligibleTargets` registered alongside each handler
+  (`registerAbility(key, handler, {getEligibleTargets})`), plus
+  `needsTargetSelection()`/`getEligibleTargets()` lookups. This is what
+  lets `turnManager.js` decide whether to pause without ever branching on
+  an ability's name.
+- `js/abilities/{cannon,pirateDagger,luckyAnchor,treasureMap}.js`: each
+  gained its own `getEligibleTargets()` — Cannon/Dagger: every card in
+  every OTHER player's Ship Cargo (`{targetPlayerId, targetCardId,
+  defId}`); Anchor: every card in the CURRENT player's own Ship Cargo
+  (`{cargoCardId, defId}`); Map: every card in Lost Loot (`{targetCardId,
+  defId}`). No handler's actual resolution LOGIC changed — they already
+  read target info from `context`; only the eligibility query was added.
+  Compass needed zero changes (no eligibility function registered ->
+  never pauses, exactly as before).
+- **Latent bug fixed in passing**: `gameState.abilityContext` was never
+  actually cleared by real gameplay (`clearAbilityContext()` existed but
+  nothing called it), so a Compass preview would have silently leaked
+  into `modalManager.js`'s rendering on later turns/reveals. Fixed by
+  having `resolveAbility()` clear it at the start of every new ability
+  resolution — Compass re-sets it immediately if the card IS one. Zero
+  test impact (no test asserted the old, always-latent staleness).
+- `js/modalManager.js` (new) — the only module reading/writing
+  `#modal-root`. Two render modes, both driven purely by GameState reads
+  (zero mutators, matching `uiManager.js`'s own read-only discipline):
+  a blocking choice modal for `getPendingAbilityChoice()` (grouped by
+  rival for Cannon/Dagger via each option's own `targetPlayerId` field —
+  ungrouped flat list for Anchor/Map, again read off the data rather than
+  branched on ability name), and a non-blocking Compass preview panel for
+  an active `getAbilityContext()` peek during `PLAYER_DECISION`. Same
+  `gameState.on('*', render)` full-re-render strategy as `uiManager.js`;
+  the two modules never call each other, only communicate implicitly via
+  GameState events.
+- `js/inputManager.js`: extended `dispatchAction()` to accept an optional
+  `payload` and added `ACTIONS.CHOOSE_ABILITY_TARGET`, so
+  `gameManager.chooseAbilityTarget()` goes through the exact same single
+  seam as the other two actions.
+- `js/gameManager.js`: added `chooseAbilityTarget()` (with its own
+  `assertAwaitingAbilityChoice` guard) and re-exported
+  `getPendingAbilityChoice`.
+- `css/modal.css`: a blocking `.modal-overlay`/`.modal-panel` look for
+  the choice modal, and a small non-blocking corner `.modal-preview` for
+  Compass (animated enter/exit transitions are Stage D, Prompt 018+).
+- `js/main.js`: now also calls `modalManager.init(cardDefinitions)`.
+- **Existing-test fallout, fixed**: Lost Loot is always pre-populated (10
+  cards) at game start, so a fixed seed's very first real card CAN
+  legitimately be a Treasure Map — meaning the `startFreshExpedition()`
+  helper three test files use (discard-the-first-card technique) could
+  now leave the game paused at PLAYER_CHOICE before the helper even got
+  to `clearExpeditionArea()`. Fixed by adding a small
+  `settleAnyPendingAbilityChoice()` step (resolves with the first
+  offered option, discarded right after along with everything else) to
+  each of the three local helpers
+  (`single-resolution-abilities.test.js`, `ability-chains.test.js`,
+  `chain-abilities.test.js`). Two tests whose OWN title already predicted
+  this exact change ("real UI arrives Prompt 014") were rewritten to
+  assert the new pause-then-resolve behavior instead of the old
+  no-target no-op:
+  - `single-resolution-abilities.test.js`'s Cannon test — split into two:
+    one asserting the real pause + a real destroy once resolved, one
+    confirming NO pause when nothing is eligible (no rival has cargo
+    yet).
+  - `ability-chains.test.js`'s Treasure Map test — now asserts the pause,
+    the pending choice's shape, then resolves it before continuing.
+  - `score-manager.test.js`'s full-game determinism test: p1 already has
+    a card in Ship Cargo by the time p2's turn starts, so that seed's
+    Cannon reveal for p2 can now find p1 an eligible target and pause.
+    Resolved the same way as the other helpers; the test's expected
+    scores were also changed from a pre-effect assumption
+    (`p1CardDef.value`) to deriving both players' expected scores from
+    the ACTUAL final Ship Cargo via `scoreManager.calculateScore()` — the
+    same function `turnManager.js`'s own `scoring()` step uses — which is
+    correct whether or not that Cannon actually had (or used) an
+    eligible target.
+- Verified two ways, since no headless-browser tool is available in this
+  environment: (1) a manual browser check via `npm start`; (2) the
+  Prompt 012/013 DOM shim was extended to find and click the first
+  `.modal-option` button whenever `phase === 'PLAYER_CHOICE'`, and used
+  to drive a full 2-player game (1 human, 1 AI) to `SCORING` using ONLY
+  simulated clicks — Explore Further/Return to Ship AND modal target
+  selections — across 14 different seeds (6 shallow, 8 exploring deeper
+  to increase target-selection variety), every one completing cleanly
+  (20-28 total clicks, 4-8 of them real modal selections) with a correct
+  scoring result. A DOM-tree dump of a real Pirate Dagger pause (3
+  eligible cards across 1 rival) confirmed the grouped-by-rival modal
+  renders exactly as designed, with real icons/values. This is a one-off
+  manual check, not a committed test file, matching Prompt 012/013's own
+  note that Stage B UI code is outside `npm test`'s scope.
+- Full engine test suite: 136/136 passing (up from 135/135 before this
+  prompt — the Cannon test above was split into two, one for the pause
+  case and one for the no-eligible-target case; every other update above
+  is a same-count rewrite of an existing test, not a net addition).
 
 ## Notes on Prompt 013 — Card Interaction
 

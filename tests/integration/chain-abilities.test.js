@@ -62,11 +62,27 @@ function buildPlayers(count = 2) {
   }));
 }
 
+/**
+ * Auto-resolves any pending human ability-target-selection choice by
+ * picking its first eligible option (Prompt 014's PLAYER_CHOICE pause).
+ * Needed because Lost Loot always starts pre-populated, so a fixed
+ * seed's very first real card CAN legitimately be a Treasure Map that
+ * pauses play before startFreshExpedition() discards it.
+ */
+function settleAnyPendingAbilityChoice() {
+  let pending = gameState.getPendingAbilityChoice();
+  while (pending) {
+    turnManager.resolveAbilityChoice(pending.options[0]);
+    pending = gameState.getPendingAbilityChoice();
+  }
+}
+
 function startFreshExpedition(playerCount = 2) {
   turnManager.startGame(cardDefs, config, buildPlayers(playerCount), {
     treasureSeed: 'chain-abilities-scenario',
     lostLootSeed: 'chain-abilities-scenario-lostloot',
   });
+  settleAnyPendingAbilityChoice();
   gameState.clearExpeditionArea();
 }
 

@@ -6,12 +6,14 @@
  * chain ability — GDD §13).
  * Implemented: Phase 10b (Chain Abilities) — Prompt 010b.
  *
- * Target-selection UI doesn't exist yet (arrives Prompt 014) — same as
- * Cannon (GDD §14.2), the target is accepted directly on the
- * AbilityContext:
+ * Target selection (Prompt 014 — modalManager.js) supplies the target
+ * via the AbilityContext, exactly as it always has (same shape as
+ * Cannon, GDD §14.2):
  *   context.targetPlayer  - the rival Player object being targeted
  *   context.targetCardId  - the instanceId of the CardInstance, within
  *                           that rival's Ship Cargo, to steal
+ * This module's own getEligibleTargets() (below) is what modalManager.js
+ * (via turnManager.js) uses to render the actual selectable list.
  *
  * Unlike Cannon (which destroys the target permanently, to Lost Loot),
  * Dagger puts the stolen card back into play: it's removed from the
@@ -58,7 +60,7 @@ function handlePirateDagger(context, enqueue) {
   const targetCardId = context.targetCardId ?? null;
 
   if (!targetPlayerId || !targetCardId) {
-    log.info('Pirate Dagger: no target supplied — no-op (real target-selection UI arrives Prompt 014)', {
+    log.info('Pirate Dagger: no target supplied — no-op (AI targeting arrives Prompt 015; a human with no eligible target also lands here)', {
       currentPlayerId,
     });
     return;
@@ -104,6 +106,28 @@ function handlePirateDagger(context, enqueue) {
   });
 }
 
-abilityManager.registerAbility('pirateDagger', handlePirateDagger);
+/**
+ * Every currently-eligible Dagger target: one entry per card in every
+ * OTHER player's Ship Cargo — identical eligibility shape to Cannon's own
+ * getEligibleTargets() (both target "a card in a rival's Ship Cargo"),
+ * kept as its own independent function rather than a shared import to
+ * keep each ability module self-contained (matches the project's
+ * existing one-module-per-ability discipline).
+ *
+ * @param {string} currentPlayerId
+ * @returns {Array<{targetPlayerId: string, targetCardId: string, defId: string}>}
+ */
+function getEligibleTargets(currentPlayerId) {
+  const options = [];
+  for (const player of gameState.getPlayers()) {
+    if (player.id === currentPlayerId) continue;
+    for (const card of player.shipCargo ?? []) {
+      options.push({ targetPlayerId: player.id, targetCardId: card.instanceId, defId: card.defId });
+    }
+  }
+  return options;
+}
 
-export { handlePirateDagger };
+abilityManager.registerAbility('pirateDagger', handlePirateDagger, { getEligibleTargets });
+
+export { handlePirateDagger, getEligibleTargets };

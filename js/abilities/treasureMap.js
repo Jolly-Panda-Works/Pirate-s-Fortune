@@ -6,15 +6,21 @@
  * ability — GDD §13).
  * Implemented: Phase 10b (Chain Abilities) — Prompt 010b.
  *
- * Selection UI doesn't exist yet (arrives Prompt 014) — the target is
- * accepted directly on the AbilityContext:
+ * Target selection (Prompt 014 — modalManager.js) supplies the card via
+ * the AbilityContext:
  *   context.targetCardId - the instanceId of the CardInstance, within
  *                          Lost Loot, to retrieve. If omitted, defaults
  *                          to the first eligible card in Lost Loot (a
- *                          defensive fallback for automated/no-UI paths,
- *                          not a real "auto-pick" game rule — real
- *                          gameplay will always supply an explicit
- *                          selection once Prompt 014 lands).
+ *                          defensive fallback for automated/no-UI paths —
+ *                          e.g. an AI player, until Prompt 015 gives it a
+ *                          real deterministic-choice function to call
+ *                          here instead — not a real "auto-pick" rule for
+ *                          human play, which always supplies an explicit
+ *                          selection via the modal).
+ * This module's own getEligibleTargets() (below) is what modalManager.js
+ * (via turnManager.js) uses to render the actual selectable list — it
+ * returns every card currently in Lost Loot, since nothing in the
+ * ruleset restricts which ones are "eligible" beyond simply being there.
  *
  * The retrieved card is removed from Lost Loot and handed to
  * abilityResolver.js's Resolution Queue via `enqueue({ cardInstance,
@@ -87,6 +93,19 @@ function handleTreasureMap(context, enqueue) {
   });
 }
 
-abilityManager.registerAbility('treasureMap', handleTreasureMap);
+/**
+ * Every currently-eligible Treasure Map target: every card in Lost Loot
+ * (GDD §14.7 — nothing in the ruleset restricts eligibility further).
+ * Prompt 014: this is what modalManager.js renders as the selection list
+ * — an empty return means "Lost Loot is empty", matching the graceful
+ * no-modal degrade behavior already built into handleTreasureMap() above.
+ *
+ * @returns {Array<{targetCardId: string, defId: string}>}
+ */
+function getEligibleTargets() {
+  return gameState.getLostLoot().map((card) => ({ targetCardId: card.instanceId, defId: card.defId }));
+}
 
-export { handleTreasureMap };
+abilityManager.registerAbility('treasureMap', handleTreasureMap, { getEligibleTargets });
+
+export { handleTreasureMap, getEligibleTargets };

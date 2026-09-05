@@ -9,10 +9,16 @@
  * Updated: Phase 8 (Scoring) — Prompt 008.
  * Updated: Phase 9 (Ability Framework) — Prompt 009.
  * Updated: Phase 10a (Single-Resolution Abilities) — Prompt 010.
+ * Updated: Phase 14 (Modal System) — Prompt 014.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
- *                    -> (safe: RESOLVE_ABILITY -> PLAYER_DECISION ->
+ *                    -> (safe: RESOLVE_ABILITY
+ *                        -> (targeted ability, human, eligible target
+ *                            exists: pause at PLAYER_CHOICE, resumed by
+ *                            resolveAbilityChoice() -> back into
+ *                            RESOLVE_ABILITY's own continuation)
+ *                        -> PLAYER_DECISION ->
  *                        (explore: DRAW_CARD) | (return: RETURN_TO_SHIP -> END_TURN))
  *   END_TURN -> (deck empty? GAME_END -> SCORING : next player -> PLAYER_TURN_START)
  *
@@ -100,6 +106,31 @@
  *  - RESOLVE_ABILITY remains a no-op passthrough; real logic lands in
  *    Prompt 009.
  *
+ * Prompt 014 scope (per docs/prompts/stage-b-minimal-ui.md, GDD
+ * §14.2/14.4/14.5/14.7): RESOLVE_ABILITY now PAUSES — a brand new
+ * PLAYER_CHOICE phase, the same "pause point + resume function" pattern
+ * PLAYER_DECISION already uses for Explore Further/Return to Ship — for
+ * a targeted ability (Cannon/Pirate Dagger/Lucky Anchor/Treasure Map)
+ * whenever BOTH of these hold: the current player is human, AND
+ * abilityManager.getEligibleTargets() finds at least one real option.
+ * Otherwise (an AI player — real AI targeting is Prompt 015's own
+ * "same code path, different input source" — or a human with nothing
+ * eligible, e.g. no rival has any cargo yet) resolution continues
+ * immediately with no target, exactly as Stage A left it: a deliberate,
+ * already-tested no-op. modalManager.js (also Prompt 014) is what a
+ * human's choice actually comes from — it renders
+ * gameState.getPendingAbilityChoice() into #modal-root and, on a click,
+ * calls gameManager.chooseAbilityTarget(selection), which calls this
+ * module's new resolveAbilityChoice() to resume. Compass needs NONE of
+ * this — its own ability handler (abilities/compass.js) has no
+ * registered eligibility function, so it always resolves immediately
+ * exactly as before; GDD §14.1's "PLAYER_CHOICE" is just its own name
+ * for the ALREADY-existing PLAYER_DECISION step (Explore Further/Return
+ * to Ship), which this Prompt's new PLAYER_CHOICE phase is deliberately
+ * NOT reused for, to avoid colliding two different meanings under one
+ * name — modalManager.js separately shows the previewed card during
+ * PLAYER_DECISION whenever a Compass abilityContext is present.
+ *
  * Rules this module respects (GDD §30):
  *  - Engine-independent (no DOM/browser/Unity APIs in rules code).
  *  - No hard-coded card names — nothing here ever inspects a card's name.
@@ -114,6 +145,7 @@ import * as burnManager from './burnManager.js';
 import * as collectManager from './collectManager.js';
 import * as scoreManager from './scoreManager.js';
 import * as abilityResolver from './abilityResolver.js';
+import * as abilityManager from './abilityManager.js';
 import './abilities/index.js';
 
 const log = createLogger('turnManager');
@@ -300,33 +332,89 @@ function shipwreck(expeditionCard) {
 }
 
 /**
- * RESOLVE_ABILITY -> PLAYER_DECISION (safe) | SHIPWRECK (a chain-generated
- * card turned out to be a duplicate — GDD §14.4-14.6).
- * GDD §8 Step 4 / §12/§13: resolves expeditionCard's ability (if any) via
- * abilityResolver.resolveAbility(), which also drains its own internal
- * Resolution Queue for any further contexts the ability generates. Looks
- * the card's definition up via cardManager.getDefinition() since
- * abilityResolver operates on definitions (for their `.ability` key),
- * never on bare CardInstances. Cards with no ability (ability key = null,
- * e.g. Gold Coin) legitimately no-op inside abilityResolver — nothing
- * special is done for them here.
+ * RESOLVE_ABILITY -> PLAYER_CHOICE (a human's targeted-ability selection
+ * is pending — Prompt 014) | PLAYER_DECISION (safe, resolved
+ * immediately) | SHIPWRECK (a chain-generated card turned out to be a
+ * duplicate — GDD §14.4-14.6).
  *
- * Prompt 010b: passes gameCardDefinitions through as resolveAbility()'s
- * third argument (needed for any chain-generated card the Resolution
- * Queue introduces — Pirate Dagger/Lucky Anchor/Sea Serpent). If the
- * returned `shipwreckedCard` is non-null, a chain-generated card
- * duplicated mid-resolution — that's handled EXACTLY like a normal
- * duplicate, via this function's own shipwreck(), rather than anything
- * abilityResolver.js does itself (it never ends a turn).
+ * GDD §8 Step 4 / §12/§13: resolves expeditionCard's ability (if any) via
+ * abilityResolver.resolveAbility() (through finishResolveAbility() below),
+ * which also drains its own internal Resolution Queue for any further
+ * contexts the ability generates. Looks the card's definition up via
+ * cardManager.getDefinition() since abilityResolver operates on
+ * definitions (for their `.ability` key), never on bare CardInstances.
+ * Cards with no ability (ability key = null, e.g. Gold Coin) legitimately
+ * no-op inside abilityResolver — nothing special is done for them here.
+ *
+ * Prompt 014: before resolving anything, checks whether this ability is
+ * even a targeted one at all (abilityManager.needsTargetSelection()) —
+ * Compass/Captain Shield/Sea Serpent/Treasure Chest+Golden Key/Gold Coin
+ * all return false here and skip straight to finishResolveAbility(),
+ * unchanged from Prompt 010/010b. For a targeted ability
+ * (Cannon/Dagger/Anchor/Map), a human current player with at least one
+ * real eligible option PAUSES at PLAYER_CHOICE instead — see this
+ * function's own header block above for the full rationale — and
+ * resolveAbilityChoice() (below) is what resumes it.
  */
 function resolveAbility(expeditionCard) {
   gameState.setPhase(PHASES.RESOLVE_ABILITY);
   const current = gameState.getCurrentPlayer();
   const definition = cardManager.getDefinition(gameCardDefinitions, expeditionCard.defId);
+  const abilityKey = definition?.ability ?? null;
+
+  // Prompt 014: a stale preview from an EARLIER Compass reveal (this
+  // turn or a previous one) must never leak into modalManager.js's
+  // rendering of THIS card's own resolution — GameState.abilityContext
+  // is otherwise never cleared automatically (only Compass's own handler
+  // ever sets it), so every new ability resolution starts clean; Compass
+  // re-sets it immediately below if this card IS one.
+  gameState.clearAbilityContext();
+
+  if (current && !current.isAI && abilityManager.needsTargetSelection(abilityKey)) {
+    const eligibleOptions = abilityManager.getEligibleTargets(abilityKey, current.id);
+    if (eligibleOptions.length > 0) {
+      gameState.setPendingAbilityChoice({
+        ability: abilityKey,
+        expeditionCardInstanceId: expeditionCard.instanceId,
+        currentPlayerId: current.id,
+        options: eligibleOptions,
+      });
+      gameState.setPhase(PHASES.PLAYER_CHOICE);
+      log.info('Awaiting human ability target selection — paused at PLAYER_CHOICE', {
+        playerId: current.id,
+        ability: abilityKey,
+        optionCount: eligibleOptions.length,
+      });
+      return gameState.getPhase();
+    }
+    log.debug('Targeted ability has no eligible target right now — resolving immediately with no target', {
+      playerId: current.id,
+      ability: abilityKey,
+    });
+  }
+
+  return finishResolveAbility(expeditionCard, definition, {});
+}
+
+/**
+ * Shared tail end of ability resolution — called either directly from
+ * resolveAbility() (no target needed, or none eligible) or from
+ * resolveAbilityChoice() (a human's — or, Prompt 015, an AI's — target
+ * just arrived). Exactly the Stage A resolveAbility() body, factored out
+ * so both call sites share one Shipwreck-check/continuation path.
+ *
+ * @param {object} expeditionCard - the CardInstance whose ability this is
+ * @param {object} definition - its card definition (for `.ability`)
+ * @param {object} targetContext - extra AbilityContext fields to merge in
+ *   (e.g. `{targetPlayer, targetCardId}` or `{cargoCardId}`) — `{}` when
+ *   no target applies.
+ */
+function finishResolveAbility(expeditionCard, definition, targetContext) {
+  const current = gameState.getCurrentPlayer();
 
   const result = abilityResolver.resolveAbility(
     definition,
-    { currentPlayer: current, reason: 'reveal' },
+    { currentPlayer: current, reason: 'reveal', ...targetContext },
     gameCardDefinitions
   );
 
@@ -344,6 +432,72 @@ function resolveAbility(expeditionCard) {
     processedCount: result.processedCount,
   });
   return playerDecision();
+}
+
+/**
+ * PLAYER_CHOICE -> PLAYER_DECISION (safe) | SHIPWRECK. Resumes a
+ * RESOLVE_ABILITY that paused for a human's targeted-ability selection
+ * (Prompt 014) — modalManager.js (via gameManager.chooseAbilityTarget())
+ * is the only caller in real play. `selection` must be exactly one of
+ * the option objects gameState.getPendingAbilityChoice().options offered
+ * (compared by value, via JSON serialization — every option is already a
+ * small, flat, JSON-safe object, since abilityManager's
+ * getEligibleTargets() functions build them that way) — this is
+ * deliberately the SAME function an AI's future deterministic choice
+ * (Prompt 015) will also call, per the prompt's own "same code path,
+ * different input source".
+ *
+ * Builds the target-selection AbilityContext fields generically, straight
+ * from whichever field names `selection` itself carries
+ * (`targetPlayerId`/`targetCardId` for Cannon/Dagger/Map,
+ * `cargoCardId` for Anchor) — never a hard-coded per-ability switch here
+ * (rule 4), since every ability's own getEligibleTargets() already chose
+ * its own option shape and every ability's own handler already reads
+ * exactly those AbilityContext field names (see each abilities/*.js
+ * module's header).
+ *
+ * @param {object} selection - one of the pending choice's own `options`
+ * @returns {string} the phase the state machine settled on next
+ */
+function resolveAbilityChoice(selection) {
+  const pending = gameState.getPendingAbilityChoice();
+  if (!pending) {
+    throw new Error('turnManager.resolveAbilityChoice: no ability choice is currently pending');
+  }
+
+  const serializedSelection = JSON.stringify(selection);
+  const isValidOption = pending.options.some((option) => JSON.stringify(option) === serializedSelection);
+  if (!isValidOption) {
+    throw new Error('turnManager.resolveAbilityChoice: selection is not one of the pending eligible options');
+  }
+
+  const expeditionCard = gameState
+    .getExpeditionArea()
+    .find((card) => card.instanceId === pending.expeditionCardInstanceId);
+  if (!expeditionCard) {
+    throw new Error('turnManager.resolveAbilityChoice: the pending choice\'s own card is no longer in the Expedition Area');
+  }
+  const definition = cardManager.getDefinition(gameCardDefinitions, expeditionCard.defId);
+
+  const targetContext = {};
+  if (selection.targetPlayerId) {
+    targetContext.targetPlayer = gameState.getPlayer(selection.targetPlayerId);
+  }
+  if (selection.targetCardId) {
+    targetContext.targetCardId = selection.targetCardId;
+  }
+  if (selection.cargoCardId) {
+    targetContext.cargoCardId = selection.cargoCardId;
+  }
+
+  gameState.clearPendingAbilityChoice();
+  log.info('Human ability target selected — resuming RESOLVE_ABILITY', {
+    ability: pending.ability,
+    playerId: pending.currentPlayerId,
+    selection,
+  });
+
+  return finishResolveAbility(expeditionCard, definition, targetContext);
 }
 
 /**
@@ -491,6 +645,7 @@ export {
   checkDuplicate,
   shipwreck,
   resolveAbility,
+  resolveAbilityChoice,
   playerDecision,
   returnToShip,
   endTurn,
@@ -506,6 +661,7 @@ export default {
   checkDuplicate,
   shipwreck,
   resolveAbility,
+  resolveAbilityChoice,
   playerDecision,
   returnToShip,
   endTurn,

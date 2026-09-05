@@ -6,11 +6,16 @@
  * calls the `enqueue` callback it's given).
  * Implemented: Phase 10a (Single-Resolution Abilities) — Prompt 010.
  *
- * Target-selection UI doesn't exist yet (arrives Prompt 014) — per the
- * prompt spec, the target is accepted directly on the AbilityContext:
+ * Target selection (Prompt 014 — modalManager.js) supplies the target
+ * via the AbilityContext, exactly as it always has:
  *   context.targetPlayer  - the rival Player object being targeted
  *   context.targetCardId  - the instanceId of the CardInstance, within
  *                           that rival's Ship Cargo, to destroy
+ * This module's own getEligibleTargets() (below) is what modalManager.js
+ * (via turnManager.js) uses to render the actual selectable list — the
+ * handler itself never needs to know whether a target came from a human's
+ * click or (Prompt 015) an AI's deterministic choice; it just validates
+ * whatever context it's given, same as before.
  *
  * Design decision (GDD §14.2 doesn't specify a zone for "rival card" —
  * the Expedition Area is a single SHARED zone used only by whoever's turn
@@ -58,7 +63,7 @@ function handleCannon(context) {
   const targetCardId = context.targetCardId ?? null;
 
   if (!targetPlayerId || !targetCardId) {
-    log.info('Cannon: no target supplied — no-op (real target-selection UI arrives Prompt 014)', {
+    log.info('Cannon: no target supplied — no-op (AI targeting arrives Prompt 015; a human with no eligible target also lands here)', {
       currentPlayerId,
     });
     return;
@@ -100,6 +105,29 @@ function handleCannon(context) {
   });
 }
 
-abilityManager.registerAbility('cannon', handleCannon);
+/**
+ * Every currently-eligible Cannon target: one entry per card in every
+ * OTHER player's Ship Cargo (GDD §14.2 — "one eligible rival card").
+ * Prompt 014: this is what modalManager.js renders as the selection
+ * list, and the SAME function turnManager.js calls to decide whether a
+ * just-revealed Cannon needs to pause for a human's choice at all (an
+ * empty return means "no eligible target exists" — resolve immediately,
+ * matching the graceful-degrade posture every other ability already has).
+ *
+ * @param {string} currentPlayerId
+ * @returns {Array<{targetPlayerId: string, targetCardId: string, defId: string}>}
+ */
+function getEligibleTargets(currentPlayerId) {
+  const options = [];
+  for (const player of gameState.getPlayers()) {
+    if (player.id === currentPlayerId) continue;
+    for (const card of player.shipCargo ?? []) {
+      options.push({ targetPlayerId: player.id, targetCardId: card.instanceId, defId: card.defId });
+    }
+  }
+  return options;
+}
 
-export { handleCannon };
+abilityManager.registerAbility('cannon', handleCannon, { getEligibleTargets });
+
+export { handleCannon, getEligibleTargets };

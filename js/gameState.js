@@ -17,6 +17,11 @@
  *   ├── currentPlayerIndex
  *   ├── turnHistory
  *   ├── abilityContext
+ *   ├── pendingAbilityChoice   (Prompt 014, GDD §14.2/14.4/14.5/14.7 —
+ *   │                            a human-facing target-selection request
+ *   │                            "Cannon/Pirate Dagger/Lucky Anchor/
+ *   │                            Treasure Map" pauses on; null whenever
+ *   │                            no choice is currently pending)
  *   ├── config
  *   └── results         (Prompt 008, GDD §11 — final scoring outcome)
  *
@@ -48,6 +53,7 @@ const PHASES = Object.freeze({
   CHECK_DUPLICATE: 'CHECK_DUPLICATE',
   SHIPWRECK: 'SHIPWRECK',
   RESOLVE_ABILITY: 'RESOLVE_ABILITY',
+  PLAYER_CHOICE: 'PLAYER_CHOICE',
   PLAYER_DECISION: 'PLAYER_DECISION',
   RETURN_TO_SHIP: 'RETURN_TO_SHIP',
   END_TURN: 'END_TURN',
@@ -66,6 +72,7 @@ function createInitialState() {
     currentPlayerIndex: 0,
     turnHistory: [],
     abilityContext: null,
+    pendingAbilityChoice: null,
     config: null,
     results: null,
   };
@@ -178,6 +185,17 @@ function getTurnHistory() {
 
 function getAbilityContext() {
   return clone(state.abilityContext);
+}
+
+/**
+ * GDD §14.2/14.4/14.5/14.7 (Prompt 014): the target-selection request a
+ * targeted ability (Cannon/Pirate Dagger/Lucky Anchor/Treasure Map) is
+ * currently paused on, or null if nothing is pending. Shape is the
+ * caller's (turnManager.js's) responsibility — this module only stores/
+ * clones/emits, matching every other mutator here.
+ */
+function getPendingAbilityChoice() {
+  return clone(state.pendingAbilityChoice);
 }
 
 /**
@@ -335,6 +353,24 @@ function clearAbilityContext() {
 }
 
 /**
+ * GDD §14.2/14.4/14.5/14.7 (Prompt 014): records a pending target-
+ * selection request — set by turnManager.js's resolveAbility() when a
+ * targeted ability has at least one eligible target and the current
+ * player is human, read by modalManager.js to render the choices, and
+ * cleared once turnManager.js's resolveAbilityChoice() consumes it.
+ * @param {object} choice
+ */
+function setPendingAbilityChoice(choice) {
+  state.pendingAbilityChoice = clone(choice);
+  emit('PENDING_ABILITY_CHOICE_SET', { choice: clone(choice) });
+}
+
+function clearPendingAbilityChoice() {
+  state.pendingAbilityChoice = null;
+  emit('PENDING_ABILITY_CHOICE_CLEARED', {});
+}
+
+/**
  * GDD §11: stores the final scoring results — set by turnManager.js's
  * scoring() step (via scoreManager.js) once, when the Treasure Deck
  * empties. Shape is the caller's responsibility (a plain, JSON-serializable
@@ -373,6 +409,7 @@ export {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getPendingAbilityChoice,
   getResults,
   getShieldActive,
   getStateSnapshot,
@@ -392,6 +429,8 @@ export {
   addTurnHistoryEntry,
   setAbilityContext,
   clearAbilityContext,
+  setPendingAbilityChoice,
+  clearPendingAbilityChoice,
   setResults,
   setShieldActive,
 };

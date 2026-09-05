@@ -11,12 +11,16 @@
  * player can play an entire game without the console. `window.gameManager`
  * stays exposed below purely as an optional debugging convenience, not
  * because it's required to play.
+ * Phase 14 (Prompt 014 — Modal System): also wires up modalManager.js, so
+ * targeted abilities (Cannon/Pirate Dagger/Lucky Anchor/Treasure Map) and
+ * Compass's preview render into #modal-root and are fully playable too.
  */
 
 import { createLogger } from './logger.js';
 import * as gameManager from './gameManager.js';
 import * as iconManager from './iconManager.js';
 import * as uiManager from './uiManager.js';
+import * as modalManager from './modalManager.js';
 
 const log = createLogger('main');
 
@@ -50,6 +54,7 @@ async function bootstrap() {
 
   iconManager.init(config, iconMap);
   uiManager.init(cardDefinitions);
+  modalManager.init(cardDefinitions);
 
   // A default 2-player game (1 human, 1 AI) starts automatically so the
   // board is playable the moment the page loads — no setup step needed.

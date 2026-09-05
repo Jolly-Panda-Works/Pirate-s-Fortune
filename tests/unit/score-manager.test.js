@@ -128,29 +128,33 @@ test('a full deterministic 2-player game reaches SCORING with the exact expected
     // abilities now real (Prompt 009/010/010b), that seed happened to
     // deal p2 a Treasure Chest + Golden Key as their only card — which
     // correctly (GDD §14.8) grants a bonus card from Lost Loot on Return
-    // to Ship, so "score equals that one card's own value" is no longer
+    // to Ship, so "score equals that one card's own value" was no longer
     // a safe assumption for it specifically. 'score-manager-v5' deals
-    // both players a Cannon instead (safe with no target supplied, per
-    // every other test in this codebase — no card-count or score effect
-    // beyond the card's own value), keeping this scenario's simple
-    // one-card-each assumption valid.
+    // both players a Cannon instead. Prompt 014: since p1 already has a
+    // card in Ship Cargo by the time p2's Cannon resolves, this now
+    // pauses for a real target choice rather than no-opping — see below,
+    // where expected scores are derived from the ACTUAL final state
+    // rather than assumed, so this scenario stays correct either way.
     treasureSeed: 'score-manager-v5',
     lostLootSeed: 'score-manager-v5-lostloot',
   });
 
-  // p1's opening card auto-revealed by startGame(). Read it back so the
-  // expected score is derived from what the game actually drew, not
-  // hand-guessed.
-  const p1Card = gameManager.getExpeditionArea()[0];
-  const p1CardDef = cardDefs.find((d) => d.id === p1Card.defId);
-
-  // p1 immediately returns to ship with just that one card -> score is
-  // exactly that card's value (only one type present).
+  // p1 immediately returns to ship with just their opening card.
   gameManager.returnToShip();
   assert.equal(gameManager.getCurrentPlayer().id, 'p2');
 
-  const p2Card = gameManager.getExpeditionArea()[0];
-  const p2CardDef = cardDefs.find((d) => d.id === p2Card.defId);
+  // Prompt 014: p1 already has one card in Ship Cargo by the time p2's
+  // turn starts, so if p2's own card happens to be a targeted ability
+  // (e.g. Cannon, per this seed) with p1 now an eligible rival target,
+  // resolveAbility() pauses at PLAYER_CHOICE instead of resolving
+  // immediately. Resolve any such pause (picking the first offered
+  // option, exactly like every other test file's own
+  // settleAnyPendingAbilityChoice() helper) before continuing.
+  let pending = gameState.getPendingAbilityChoice();
+  while (pending) {
+    gameManager.chooseAbilityTarget(pending.options[0]);
+    pending = gameState.getPendingAbilityChoice();
+  }
 
   // Force the Treasure Deck empty before p2's return, so that turn's
   // endTurn() routes straight to GAME_END -> SCORING instead of advancing
@@ -160,10 +164,20 @@ test('a full deterministic 2-player game reaches SCORING with the exact expected
 
   assert.equal(gameManager.getPhase(), gameManager.PHASES.SCORING);
 
-  const p1Score = p1CardDef.value;
-  const p2Score = p2CardDef.value;
-
+  // Prompt 014: derive expected scores from the ACTUAL final Ship Cargo
+  // (via scoreManager.calculateScore(), the same function
+  // turnManager.js's own scoring() step uses) rather than each player's
+  // pre-effect card value — p2's Cannon (this seed) may have just
+  // destroyed p1's card above (see the pending-choice comment), so
+  // "score equals that one card's own value" is no longer safe to
+  // assume for p1 specifically; deriving from final state is correct
+  // either way, whether or not that Cannon had an eligible target.
   const results = gameManager.getResults();
+  const finalP1 = gameManager.getPlayer('p1');
+  const finalP2 = gameManager.getPlayer('p2');
+  const p1Score = scoreManager.calculateScore(finalP1, cardDefs);
+  const p2Score = scoreManager.calculateScore(finalP2, cardDefs);
+
   assert.deepEqual(results.scores, { p1: p1Score, p2: p2Score });
 
   const expectedWinners =

@@ -63,6 +63,26 @@ function buildPlayers(count = 2) {
 }
 
 /**
+ * Auto-resolves any pending human ability-target-selection choice by
+ * picking its first eligible option (Prompt 014's PLAYER_CHOICE pause —
+ * see turnManager.js's resolveAbility()/resolveAbilityChoice()). Needed
+ * because Lost Loot always starts pre-populated (10 cards), so a fixed
+ * seed's very first real card CAN legitimately be a Treasure Map that
+ * pauses play before startFreshExpedition() gets a chance to discard it.
+ * Resolving with the first option (rather than, say, requiring the test
+ * to know in advance whether this will happen) keeps every test's own
+ * setup below unaffected — clearExpeditionArea() then discards whatever
+ * that resolution put in the Expedition Area exactly as it always did.
+ */
+function settleAnyPendingAbilityChoice() {
+  let pending = gameState.getPendingAbilityChoice();
+  while (pending) {
+    turnManager.resolveAbilityChoice(pending.options[0]);
+    pending = gameState.getPendingAbilityChoice();
+  }
+}
+
+/**
  * Starts a fresh 2-player game (to properly set turnManager's private
  * cardDefinitions snapshot), then discards whatever random card1 was so
  * every test starts from a genuinely empty, fully-scripted expedition.
@@ -72,6 +92,7 @@ function startFreshExpedition(playerCount = 2) {
     treasureSeed: 'single-resolution-abilities-scenario',
     lostLootSeed: 'single-resolution-abilities-scenario-lostloot',
   });
+  settleAnyPendingAbilityChoice();
   gameState.clearExpeditionArea();
 }
 
@@ -235,15 +256,45 @@ test('Cannon: a nonexistent target card id no-ops rather than throwing', () => {
   assert.equal(gameState.getLostLoot().length, 0);
 });
 
-test('Cannon: end-to-end through turnManager with no target supplied is a no-op (real UI arrives Prompt 014)', () => {
+test('Cannon: end-to-end through turnManager now pauses for a human target choice (Prompt 014), then destroys exactly the chosen card', () => {
   startFreshExpedition();
   const rivalCard = cardManager.createCardInstance(defFor('goldCoin-v5'), cardManager.ZONES.CARGO, 'p2');
   gameState.updatePlayer('p2', { shipCargo: [rivalCard] });
 
   revealSequence([defFor('cannon-v3')]);
 
+  // Prompt 014: a human current player with an eligible rival card PAUSES
+  // at PLAYER_CHOICE instead of resolving immediately — this replaces the
+  // pre-Prompt-014 "no target supplied by turnManager, so nothing was
+  // destroyed" assumption this test used to assert.
+  assert.equal(gameState.getPhase(), 'PLAYER_CHOICE');
+  const pending = gameState.getPendingAbilityChoice();
+  assert.equal(pending.ability, 'cannon');
+  assert.deepEqual(pending.options, [
+    { targetPlayerId: 'p2', targetCardId: rivalCard.instanceId, defId: rivalCard.defId },
+  ]);
+
+  turnManager.resolveAbilityChoice(pending.options[0]);
+
   assert.equal(gameState.getPhase(), 'PLAYER_DECISION');
-  assert.equal(gameState.getPlayer('p2').shipCargo.length, 1, 'no target was supplied by turnManager, so nothing was destroyed');
+  assert.equal(gameState.getPendingAbilityChoice(), null);
+  assert.equal(gameState.getPlayer('p2').shipCargo.length, 0, 'the chosen card was actually destroyed');
+  assert.ok(
+    gameState.getLostLoot().some((c) => c.instanceId === rivalCard.instanceId),
+    'the destroyed card landed in Lost Loot'
+  );
+});
+
+test('Cannon: end-to-end through turnManager with no eligible rival card resolves immediately (no pause, no modal)', () => {
+  startFreshExpedition();
+  // No player has any cargo yet — Cannon's own getEligibleTargets() (Prompt
+  // 014) returns an empty array, so resolveAbility() never pauses at all,
+  // matching the graceful "nothing eligible" degrade every other targeted
+  // ability also has (never a broken empty modal).
+  revealSequence([defFor('cannon-v3')]);
+
+  assert.equal(gameState.getPhase(), 'PLAYER_DECISION');
+  assert.equal(gameState.getPendingAbilityChoice(), null);
 });
 
 // ---------------------------------------------------------------------------

@@ -83,6 +83,21 @@ function buildPlayers(count = 2) {
 }
 
 /**
+ * Auto-resolves any pending human ability-target-selection choice by
+ * picking its first eligible option (Prompt 014's PLAYER_CHOICE pause).
+ * Needed because Lost Loot always starts pre-populated, so a fixed
+ * seed's very first real card CAN legitimately be a Treasure Map that
+ * pauses play before startFreshExpedition() discards it.
+ */
+function settleAnyPendingAbilityChoice() {
+  let pending = gameState.getPendingAbilityChoice();
+  while (pending) {
+    turnManager.resolveAbilityChoice(pending.options[0]);
+    pending = gameState.getPendingAbilityChoice();
+  }
+}
+
+/**
  * Starts a fresh game (to properly initialize turnManager's private
  * cardDefinitions snapshot), then discards whatever random card1 was so
  * every scenario below starts from a genuinely empty, fully-scripted
@@ -94,6 +109,7 @@ function startFreshExpedition(playerCount, seedSuffix) {
     treasureSeed: `ability-chains-${seedSuffix}`,
     lostLootSeed: `ability-chains-${seedSuffix}-lostloot`,
   });
+  settleAnyPendingAbilityChoice();
   gameState.clearExpeditionArea();
 }
 
@@ -436,7 +452,13 @@ test('Sea Serpent: a forced reveal cascades through 3+ real cards, each completi
 // Treasure Map (§14.7)
 // ---------------------------------------------------------------------------
 
-test('Treasure Map: retrieves a card from Lost Loot mid-expedition, later actually secured via Return to Ship', () => {
+test('Treasure Map: pauses for a human target choice, then retrieves the chosen card into the resolution flow, later actually secured via Return to Ship', () => {
+  // Prompt 014: Treasure Map is now a targeted ability — a human current
+  // player with an eligible Lost Loot card PAUSES at PLAYER_CHOICE
+  // (turnManager.js's resolveAbility()) rather than resolving
+  // immediately, exactly like Cannon/Dagger/Anchor. This replaces this
+  // test's pre-Prompt-014 assumption that Explore Further alone would
+  // finish resolution synchronously.
   startFreshExpedition(1, 'treasuremap');
   const retrievedDef = defFor('goldCoin-v8');
   const retrievedCard = cardManager.createCardInstance(retrievedDef, cardManager.ZONES.LOST_LOOT);
@@ -444,7 +466,16 @@ test('Treasure Map: retrieves a card from Lost Loot mid-expedition, later actual
 
   revealSequence([defFor('treasureMap-v5')]);
 
+  assert.equal(gameState.getPhase(), 'PLAYER_CHOICE');
+  const pending = gameState.getPendingAbilityChoice();
+  assert.equal(pending.ability, 'treasureMap');
+  assert.equal(pending.options.length, 1);
+  assert.equal(pending.options[0].targetCardId, retrievedCard.instanceId);
+
+  turnManager.resolveAbilityChoice(pending.options[0]);
+
   assert.equal(gameState.getPhase(), 'PLAYER_DECISION');
+  assert.equal(gameState.getPendingAbilityChoice(), null);
   const expedition = gameState.getExpeditionArea();
   assert.equal(expedition.length, 2);
   assert.equal(expedition[1].instanceId, retrievedCard.instanceId);

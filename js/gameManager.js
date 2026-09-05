@@ -26,6 +26,14 @@
  * resolves their PLAYER_DECISION itself using a placeholder threshold
  * (real AI arrives in Prompt 015).
  *
+ * Targeted-ability choices (Prompt 014 — GDD §14.2/14.4/14.5/14.7):
+ * chooseAbilityTarget() is the equivalent resume function for the new
+ * PLAYER_CHOICE pause turnManager's RESOLVE_ABILITY step now uses for
+ * Cannon/Pirate Dagger/Lucky Anchor/Treasure Map whenever a human current
+ * player has at least one real eligible target — see turnManager.js's
+ * resolveAbility()/resolveAbilityChoice() for the full mechanics.
+ * modalManager.js (also Prompt 014) is the only real caller.
+ *
  * Rules this module must respect (GDD §30):
  *  - Engine-independent (no DOM/browser/Unity APIs in rules code).
  *  - No hard-coded card names — dispatch via card.ability keys only.
@@ -60,6 +68,21 @@ function assertAwaitingHumanDecision(actionName) {
   if (!current || current.isAI) {
     throw new Error(
       `gameManager.${actionName}: it is not a human player's turn to decide`
+    );
+  }
+}
+
+/**
+ * Throws unless the state machine is currently paused waiting on a
+ * human's targeted-ability selection (Prompt 014 — Cannon/Pirate
+ * Dagger/Lucky Anchor/Treasure Map).
+ * @param {string} actionName - for the error message only
+ */
+function assertAwaitingAbilityChoice(actionName) {
+  const phase = gameState.getPhase();
+  if (phase !== PHASES.PLAYER_CHOICE) {
+    throw new Error(
+      `gameManager.${actionName}: no ability target choice is pending (current phase is "${phase}")`
     );
   }
 }
@@ -105,6 +128,25 @@ function returnToShip() {
   return turnManager.returnToShip();
 }
 
+/**
+ * Resolves a pending targeted-ability choice (Prompt 014 — Cannon/Pirate
+ * Dagger/Lucky Anchor/Treasure Map): the ONLY entry point modalManager.js
+ * calls when a human clicks one of the options rendered from
+ * getPendingAbilityChoice(). `selection` must be exactly one of that
+ * pending choice's own `options` (see turnManager.js's
+ * resolveAbilityChoice() for the validation).
+ * @param {object} selection - one of getPendingAbilityChoice().options
+ * @returns {string} the phase the state machine settled on next
+ */
+function chooseAbilityTarget(selection) {
+  assertAwaitingAbilityChoice('chooseAbilityTarget');
+  log.info('Human decision: ability target selected', {
+    playerId: gameState.getCurrentPlayer()?.id,
+    selection,
+  });
+  return turnManager.resolveAbilityChoice(selection);
+}
+
 // ---------------------------------------------------------------------------
 // Read-only selectors, re-exported from gameState.js.
 // ---------------------------------------------------------------------------
@@ -121,6 +163,7 @@ const {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getPendingAbilityChoice,
   getResults,
   getStateSnapshot,
   on,
@@ -133,6 +176,7 @@ export {
   startGame,
   revealNextCard,
   returnToShip,
+  chooseAbilityTarget,
   // selectors
   getPhase,
   getConfig,
@@ -145,6 +189,7 @@ export {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getPendingAbilityChoice,
   getResults,
   getStateSnapshot,
   // events
@@ -157,6 +202,7 @@ export default {
   startGame,
   revealNextCard,
   returnToShip,
+  chooseAbilityTarget,
   getPhase,
   getConfig,
   getTreasureDeck,
@@ -168,6 +214,7 @@ export default {
   getCurrentPlayer,
   getTurnHistory,
   getAbilityContext,
+  getPendingAbilityChoice,
   getResults,
   getStateSnapshot,
   on,

@@ -7,6 +7,70 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.19.0] - Prompt 014: Modal System
+
+### Added
+- New `PHASES.PLAYER_CHOICE` phase (`gameState.js`) — the same "pause
+  point + resume function" pattern `PLAYER_DECISION` already uses for
+  Explore Further/Return to Ship, now applied to targeted-ability
+  resolution. New `gameState.pendingAbilityChoice` field +
+  `getPendingAbilityChoice()`/`setPendingAbilityChoice()`/
+  `clearPendingAbilityChoice()`.
+- `js/turnManager.js`: `resolveAbility()` now pauses at PLAYER_CHOICE for
+  a targeted ability (Cannon/Pirate Dagger/Lucky Anchor/Treasure Map)
+  whenever the current player is human AND at least one real eligible
+  target exists (checked generically via
+  `abilityManager.needsTargetSelection()`/`getEligibleTargets()` — zero
+  hard-coded ability names). New `resolveAbilityChoice()` resumes it,
+  validating the selection and building the AbilityContext generically
+  from whichever fields the selection itself carries. AI players (and
+  humans with nothing eligible) continue to resolve immediately with no
+  target, unchanged from Stage A. Also fixes a latent bug: `abilityContext`
+  (Compass's preview) was never actually cleared by real gameplay before
+  this — now cleared at the start of every new ability resolution.
+- `js/abilityManager.js`: an ability can now optionally register a
+  `getEligibleTargets` function alongside its handler; new
+  `needsTargetSelection()`/`getEligibleTargets()` lookups.
+- `js/abilities/{cannon,pirateDagger,luckyAnchor,treasureMap}.js`: each
+  gained a `getEligibleTargets()` (rival cargo cards for Cannon/Dagger,
+  own cargo for Anchor, Lost Loot for Map). No resolution logic changed.
+- `js/modalManager.js` (new) — the only module reading/writing
+  `#modal-root`. Renders a blocking, grouped-by-rival choice modal for a
+  pending ability target selection, and a non-blocking Compass preview
+  panel, both driven purely by GameState reads via the same
+  `gameState.on('*', render)` full-re-render strategy `uiManager.js`
+  uses. Never calls `uiManager.js`; the two communicate only through
+  GameState events.
+- `js/inputManager.js`: `dispatchAction()` now accepts an optional
+  `payload`; added `ACTIONS.CHOOSE_ABILITY_TARGET`.
+- `js/gameManager.js`: added `chooseAbilityTarget()` + re-exported
+  `getPendingAbilityChoice`.
+- `css/modal.css`: blocking overlay/panel for the choice modal, small
+  non-blocking corner panel for the Compass preview.
+- `js/main.js`: now also initializes `modalManager`.
+
+### Fixed
+- Three existing test files' `startFreshExpedition()` helpers (which
+  discard a fresh game's auto-revealed first card) could leave the game
+  paused at PLAYER_CHOICE before discarding it, since Lost Loot always
+  starts pre-populated and a fixed seed's first card can legitimately be
+  a Treasure Map. Fixed with a small `settleAnyPendingAbilityChoice()`
+  step in each helper. Two tests whose own titles already predicted this
+  exact change ("real UI arrives Prompt 014") were rewritten for the new
+  pause-then-resolve behavior; a full-game determinism test's expected
+  scores now derive from actual final Ship Cargo via
+  `scoreManager.calculateScore()` rather than a pre-effect assumption.
+
+### Verified
+- A DOM shim (extended from Prompts 012/013) was used to drive a full
+  2-player game (1 human, 1 AI) to `SCORING` using ONLY simulated clicks
+  — Explore Further/Return to Ship AND modal target selections — across
+  14 different seeds, every one completing cleanly with a correct
+  scoring result. A DOM-tree dump of a real Pirate Dagger pause confirmed
+  the grouped-by-rival modal renders correctly.
+- Full engine test suite: 136/136 (up from 135/135; net +1 from splitting
+  one Cannon test into two).
+
 ## [0.18.0] - Prompt 013: Card Interaction
 
 ### Added
