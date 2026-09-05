@@ -20,11 +20,23 @@
     <p data-i18n="orientation.rotateDevice">Please rotate your device to landscape.</p>
   </div>
 
-  <!-- Root mount point for the board. uiManager.js owns everything inside this node. -->
+  <!-- Root mount point for the board. uiManager.js owns everything inside this
+       node (GDD §19) — it only ever writes into the zone containers below,
+       never structurally alters this shell. "Modals" (the 7th GDD §19 zone)
+       is deliberately NOT a child here — it lives in the separate
+       #modal-root node below, owned by modalManager.js (Prompt 014). -->
   <main id="app-root" class="app-root">
-    <!-- Gameplay zones (Treasure Deck, Lost Loot, Expedition Area, Ship Cargo,
-         Opponents, Actions, Modals) are rendered here starting Phase 12.
-         No gameplay markup exists at Phase 0. -->
+    <section id="zone-opponents" class="zone zone-opponents" aria-label="Opponents"></section>
+
+    <section id="zone-treasure-deck" class="zone zone-treasure-deck" aria-label="Treasure Deck"></section>
+
+    <section id="zone-expedition-area" class="zone zone-expedition-area" aria-label="Expedition Area"></section>
+
+    <section id="zone-lost-loot" class="zone zone-lost-loot" aria-label="Lost Loot"></section>
+
+    <section id="zone-actions" class="zone zone-actions" aria-label="Actions"></section>
+
+    <section id="zone-ship-cargo" class="zone zone-ship-cargo" aria-label="Ship Cargo"></section>
   </main>
 
   <!-- Modal root: modalManager.js owns everything inside this node -->

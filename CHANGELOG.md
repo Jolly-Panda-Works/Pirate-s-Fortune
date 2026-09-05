@@ -7,6 +7,56 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.17.0] - Prompt 012: UI (Board Rendering) — Stage B begins
+
+### Added
+- `js/uiManager.js` — strictly read-only GameState renderer (GDD §19,
+  rule 5). Subscribes once to `gameState.on('*', render)` (no polling, no
+  per-event-type handler map); every mutation triggers exactly one full
+  re-render. Zero imports of `gameManager.js`, zero calls to any
+  `gameState.js` mutator.
+  - Renders all 6 non-modal GDD §19 zones: Treasure Deck (face-down top
+    card + count), Lost Loot (fully face-up — Treasure Map needs its
+    contents visible), Expedition Area (face-up, reveal order, + a
+    Shield-Active badge), Ship Cargo (current player, face-up, + a live
+    score preview via `scoreManager.calculateScore()`), Opponents
+    (every other player, compact), Actions (turn/phase status +
+    Explore-Further/Return-to-Ship buttons whose `disabled` state
+    reflects whether a decision is legally pending — no click handlers
+    yet, that's Prompt 013).
+  - Every visual glyph resolves through `iconManager.resolveIcon()`
+    using `definition.ability ?? definition.type` as the key — never an
+    inline emoji/path. This single fallback rule is what lets Treasure
+    Chest and Golden Key (two `type`s, one shared `ability`) resolve
+    correctly with zero special-casing, while Gold Coin (the only
+    `ability: null` card) falls back to its `type`.
+- `index.html` — filled in the static zone markup inside `#app-root`
+  (`zone-opponents`, `zone-treasure-deck`, `zone-expedition-area`,
+  `zone-lost-loot`, `zone-actions`, `zone-ship-cargo`); `#modal-root`
+  stays untouched, owned entirely by `modalManager.js` (Prompt 014).
+- `css/layout.css` — fixed CSS grid (`grid-template-areas`, landscape-
+  first per GDD §19/§21) plus the shared zone/card-row/opponent/action-
+  button/results-banner classes.
+- `css/cards.css` — static `.card--face-up` / `.card--face-down` looks
+  (animated state transitions arrive in Stage D).
+- `js/main.js` — replaced the Phase 0 boot-only stub: `fetch()`es the
+  real data files, initializes `iconManager`/`uiManager`, starts a
+  default 2-player game (1 human, 1 AI), and exposes `window.gameManager`
+  as this Prompt's temporary debug harness (Prompt 013 replaces the
+  console-only flow with real button clicks).
+
+### Verified
+- A hand-rolled minimal DOM shim (no `jsdom`/`node_modules` available)
+  drove the real `js/uiManager.js` + `js/main.js` source through `init()`
+  and many genuine `gameManager` calls — reveals, returns, several real
+  Shipwrecks, several real ability resolutions — with zero exceptions; a
+  DOM-tree dump confirmed correct icons/values/counts/button-state at
+  each step.
+- Full engine test suite: still 135/135 (no engine file touched; Stage B
+  UI code is outside `npm test`'s scope per
+  `docs/architecture/testing-strategy.md` — visual correctness is Stage
+  B's manual-playtest exit criterion instead).
+
 ## [0.16.0] - Prompt 011: Full Ability Chain Integration Tests — Stage A complete
 
 ### Added

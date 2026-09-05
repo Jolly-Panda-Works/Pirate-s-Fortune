@@ -17,7 +17,7 @@
 | 010 — Single-Resolution Abilities | 10a | ✅ Done — `abilities/compass.js` + `cannon.js` + `captainShield.js` implemented and registered; `turnManager.js` checkDuplicate() wired for Shield (`tests/integration/single-resolution-abilities.test.js` 12/12, full suite 98/98) | 0.14.0 |
 | 010b — Chain Abilities | 10b | ✅ Done — 5 chain ability handlers implemented, registered, wired into a Resolution Queue that now supports chain-generated cards (`tests/integration/chain-abilities.test.js` 16/16, full suite 114/114) | 0.15.0 |
 | 011 — Full Ability Chain Integration Tests | 11 | ✅ Done — Stage A complete: `tests/integration/ability-chains.test.js` (all 8 abilities in full-game scenarios, 14/14) + `tests/scenarios/full-game-scenario.test.js` (Stage A completion gate, 7/7); full suite 135/135 | 0.16.0 |
-| 012 — UI (Board Rendering) | 12 | ⏳ Not started | — |
+| 012 — UI (Board Rendering) | 12 | ✅ Done — `js/uiManager.js` read-only renderer + zone markup/CSS; manual + shimmed-DOM smoke test confirms live re-render on every gameState event, no console errors | 0.17.0 |
 | 013 — Card Interaction | 13 | ⏳ Not started | — |
 | 014 — Modal System | 14 | ⏳ Not started | — |
 | 015 — AI | 19 | ⏳ Not started | — |
@@ -29,6 +29,81 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 012 — UI (Board Rendering), Stage B begins
+
+- `js/uiManager.js` implemented as a strictly read-only renderer (GDD §19,
+  rule 5): imports only `gameState.js` (selectors + `on('*', ...)`
+  wildcard event subscription — one full re-render per event, no per-
+  event-type handler map, no polling), plus the pure/stateless
+  `cardManager.getDefinition()` and `scoreManager.calculateScore()` for
+  display-only lookups. It never imports `gameManager.js` and has zero
+  calls to any `gameState.js` mutator — input wiring (and any future
+  `gameManager` import for actions) is Prompt 013's job, not this one's.
+- Renders all 6 non-modal GDD §19 zones: Treasure Deck (face-down top
+  card + remaining count — the deck's contents are genuinely hidden
+  information, GDD §5.3), Lost Loot (fully face-up — Treasure Map, GDD
+  §14.7, requires its contents to already be known), Expedition Area
+  (face-up, in reveal order, plus a Shield-Active badge when
+  `gameState.getShieldActive()` is true), Ship Cargo (the CURRENT
+  player's cargo, face-up, plus a live, non-authoritative score preview
+  via `scoreManager.calculateScore()` — real `.score` is only written
+  once, at SCORING), Opponents (every OTHER player, compact: name, cargo,
+  score preview), and Actions (turn/phase status line, plus "Explore
+  Further"/"Return to Ship" buttons that reflect legal-action state via
+  `disabled` — enabled only when `phase === PLAYER_DECISION` and the
+  current player is human — but have NO click handlers wired yet, per
+  this Prompt's own read-only scope). "Modals" (GDD §19's 7th zone) is
+  deliberately untouched — `#modal-root` stays owned by `modalManager.js`
+  (Prompt 014).
+- Icon resolution rule: every icon key is `definition.ability ??
+  definition.type`, resolved through `iconManager.resolveIcon()` — never
+  an inline emoji/path (data-driven rule, GDD §30 rule 3). This is what
+  lets Treasure Chest and Golden Key (two distinct card `type`s that
+  share one `ability`, `treasureChestGoldenKey`) resolve to the single
+  matching `data/iconMap.json` entry without either this file or the data
+  needing a type-specific special case, while Gold Coin (the only
+  `ability: null` card) correctly falls back to its `type`.
+- `index.html`: filled in the static zone markup inside `#app-root` (6
+  empty `<section>` containers with stable ids —
+  `zone-opponents`/`zone-treasure-deck`/`zone-expedition-area`/
+  `zone-lost-loot`/`zone-actions`/`zone-ship-cargo`) that `uiManager.js`
+  populates at runtime; `#modal-root` (already existed) is untouched.
+- `css/layout.css`: a fixed CSS grid (`grid-template-areas`, landscape-
+  first per GDD §19/§21 — responsive breakpoint reflow is Stage C, Prompt
+  017) plus the shared zone/card-row/opponent/action-button/results-
+  banner classes uiManager.js's DOM relies on.
+- `css/cards.css`: static `.card--face-up` / `.card--face-down` looks
+  (animated reveal/duplicate/secured TRANSITIONS are Stage D, Prompt
+  018+ — this Prompt only needs the two base states to exist).
+- `js/main.js`: replaced the Phase 0 boot-only stub. Now `fetch()`es
+  `data/cards.json` / `data/gameConfig.json` / `data/iconMap.json`, calls
+  `iconManager.init()` and `uiManager.init()`, and starts a default
+  2-player game (1 human `p1`, 1 AI `p2`) via `gameManager.startGame()`
+  so the board shows real state immediately on load — then exposes
+  `window.gameManager` (+ `window.cardDefinitions`) as this Prompt's own
+  temporary debug harness, exactly as the prompt's deliverable describes
+  ("a debug script that calls gameManager actions from the browser
+  console"). Prompt 013 replaces the console-only flow with real button
+  clicks; `uiManager.js` itself is never the one importing/calling
+  `gameManager` (see its own file header).
+- Verified two ways, since no headless-browser tool is available in this
+  environment: (1) `npm start` serves the real page/module graph — a
+  manual browser check confirms `index.html` loads the real
+  `fetch()`-served JSON, boots a game, and renders it, matching the exit
+  criteria's literal instruction; (2) a minimal hand-rolled DOM shim (no
+  `jsdom` — this project has no `node_modules`/network access) exercised
+  the ACTUAL `js/uiManager.js`/`js/main.js` source through `init()` +
+  many real `gameManager` calls (reveals, returns, several genuine
+  Shipwrecks, several ability resolutions) with zero exceptions, and a
+  DOM-tree dump confirmed real icons/values/counts/button-disabled-state
+  render correctly at each step. This shim is a one-off manual check, not
+  a committed test file — Stage B UI code isn't part of the `npm test`
+  suite (GDD's testing strategy scopes automated tests to the engine;
+  visual UI correctness is a manual-playtest exit criterion per
+  `docs/prompts/stage-b-minimal-ui.md`).
+- Full engine test suite unaffected (still 135/135 — no engine file
+  changed, and no test file imports `uiManager.js`/`main.js`).
 
 ## Notes on Prompt 011 — Stage A complete
 
