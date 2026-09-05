@@ -7,6 +7,37 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.18.0] - Prompt 013: Card Interaction
+
+### Added
+- `js/inputManager.js` (new) — the single seam every human action click
+  routes through. Exports `ACTIONS` (`EXPLORE_FURTHER`/`RETURN_TO_SHIP`)
+  and `dispatchAction()`, the only place deciding which `gameManager`
+  mutation an action name maps to. No DOM access, no `gameState.js`
+  import — the two sanctioned mutation entry points
+  (`gameManager.revealNextCard()` / `gameManager.returnToShip()`) are the
+  only calls it makes. Wrapped in a defensive try/catch (never
+  `alert`/`confirm`/`prompt` — rule 11); a rejected action is logged, not
+  surfaced via a blocking dialog.
+- `js/uiManager.js` — the Explore Further / Return to Ship buttons (their
+  `disabled` state already correct since Prompt 012) now carry real
+  `click` listeners, both routed through `inputManager.dispatchAction()`.
+  This file still makes zero direct `gameManager` calls, preserving the
+  render/input separation Prompt 012 established.
+- `js/main.js` — comments/log line updated now that clicking actually
+  works; `window.gameManager` stays exposed purely as an optional
+  debugging convenience.
+
+### Verified
+- A full 2-player game (1 human, 1 AI) driven to `SCORING` using ONLY
+  simulated button clicks (a DOM shim with real `click()`/`disabled`
+  semantics — a disabled element's `click()` is a no-op, matching real
+  DOM behavior) — never calling `gameManager` directly — across 6
+  different seeds, each completing cleanly (16-22 clicks) with a correct,
+  internally-consistent scoring result and a correctly-rendered results
+  banner.
+- Full engine test suite: still 135/135 (no engine file touched).
+
 ## [0.17.0] - Prompt 012: UI (Board Rendering) — Stage B begins
 
 ### Added

@@ -3,13 +3,14 @@
  *
  * Application entry point. Loaded as a module from index.html.
  *
- * Phase 12 scope (Prompt 012 — UI: Board Rendering): loads the real data
- * files, wires up iconManager + uiManager, and starts a default 2-player
- * game (1 human, 1 AI) so the board renders real GameState immediately on
- * load. Real click-to-play input arrives in Prompt 013 — until then, this
- * file's own temporary debug harness (`window.gameManager`) is the ONLY
- * way to advance a human turn: open the browser console and call
- * `gameManager.revealNextCard()` / `gameManager.returnToShip()`.
+ * Phase 12 (Prompt 012 — UI: Board Rendering): loads the real data files
+ * and wires up iconManager + uiManager so the board renders real
+ * GameState immediately on load.
+ * Phase 13 (Prompt 013 — Card Interaction): the Explore Further / Return
+ * to Ship buttons uiManager.js renders are now fully clickable — a human
+ * player can play an entire game without the console. `window.gameManager`
+ * stays exposed below purely as an optional debugging convenience, not
+ * because it's required to play.
  */
 
 import { createLogger } from './logger.js';
@@ -50,9 +51,8 @@ async function bootstrap() {
   iconManager.init(config, iconMap);
   uiManager.init(cardDefinitions);
 
-  // Prompt 012 temporary debug harness (Prompt 013 replaces the console
-  // calls below with real button clicks): a default 2-player game starts
-  // automatically so the board shows real state right away.
+  // A default 2-player game (1 human, 1 AI) starts automatically so the
+  // board is playable the moment the page loads — no setup step needed.
   gameManager.startGame(
     cardDefinitions,
     config,
@@ -63,18 +63,17 @@ async function bootstrap() {
     { treasureSeed: 'browser-session', lostLootSeed: 'browser-session-lostloot' }
   );
 
-  // Exposed ONLY so a human can keep playing from the console until
-  // Prompt 013 wires the Explore Further / Return to Ship buttons —
-  // uiManager.js itself never calls gameManager (see its own header).
+  // Optional debugging convenience only (e.g. inspecting state from the
+  // console) — uiManager.js itself never imports gameManager (see its
+  // own header); every real click already routes through
+  // inputManager.dispatchAction().
   window.gameManager = gameManager;
   window.cardDefinitions = cardDefinitions;
 
-  log.info(
-    'Game started. No buttons are wired yet (Prompt 013) — use the console: ' +
-      'gameManager.revealNextCard() / gameManager.returnToShip()'
-  );
+  log.info('Game started — click Explore Further / Return to Ship to play.');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   bootstrap().catch((err) => log.error('Bootstrap failed', err));
 });
+

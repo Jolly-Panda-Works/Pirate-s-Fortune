@@ -1,25 +1,37 @@
 /**
  * uiManager.js
  *
- * Responsibility: Read-only DOM rendering of GameState (GDD §19).
+ * Responsibility: DOM rendering of GameState (GDD §19), plus wiring the
+ * two human decision buttons to input handling.
  * Implemented: Phase 12 (UI — Board Rendering) — Prompt 012.
+ * Updated: Phase 13 (Card Interaction) — Prompt 013.
  *
- * This module is a pure "view": it reads GameState via gameState.js's
- * selectors (each already returns a deep copy) and gameManager's rules-only
- * helpers (cardManager.getDefinition / scoreManager.calculateScore, both
- * pure/stateless), then writes DOM. It NEVER calls gameState's mutators,
- * NEVER calls a gameManager gameplay action (revealNextCard/returnToShip —
- * that wiring is Prompt 013), and NEVER inlines an emoji or image path
- * directly — every visual glyph goes through iconManager.resolveIcon().
+ * Rendering remains read-only exactly as Prompt 012 built it: this
+ * module reads GameState via gameState.js's selectors (each already
+ * returns a deep copy) and gameManager's rules-only helpers
+ * (cardManager.getDefinition / scoreManager.calculateScore, both
+ * pure/stateless), then writes DOM. It NEVER calls a gameState.js
+ * mutator directly and NEVER inlines an emoji or image path — every
+ * visual glyph goes through iconManager.resolveIcon().
+ *
+ * Prompt 013 scope (GDD §19 "sends user actions to gameManager"): the
+ * "Explore Further" / "Return to Ship" buttons now carry a real
+ * `click` listener each — but neither listener calls gameManager
+ * itself. Both route through inputManager.dispatchAction(), the single
+ * seam every action click goes through (see inputManager.js's own
+ * header for why), so this file still never imports gameManager.js
+ * directly and still has zero calls to any gameplay mutation — it only
+ * decides WHEN a button is clickable (via `disabled`, using gameState's
+ * read-only selectors), never WHAT happens as a result.
  *
  * Render strategy: subscribe once to gameState's wildcard event stream
  * (`gameState.on('*', ...)`) and do one full re-render per event, rather
  * than diffing per-zone. At this scale (<=60 cards, <=4 players) a full
  * re-render is simple, correct, and cheap — targeted DOM patching can be
- * introduced later if profiling ever shows a need, but rule 5 ("UI never
- * mutates GameState directly") and the read-only-renderer requirement
- * this Prompt is built around are both easiest to keep true with the
- * simplest possible render loop.
+ * introduced later if profiling ever shows a need. Re-creating every
+ * button element on each render also means click listeners never need
+ * manual cleanup — the old element (and its listener) is simply dropped
+ * along with the rest of the previous render's DOM subtree.
  *
  * English-only placeholder strings below are intentional for Stage B —
  * every one is marked `// TODO(i18n)` so Prompt 016 (Stage C) can find and
@@ -34,7 +46,12 @@
  *    definition's `ability` (falling back to `type`), never a literal
  *    card id/name string.
  *  - UI never mutates GameState directly — this module has zero calls to
- *    any gameState.js mutator or setter.
+ *    any gameState.js mutator or setter; the only human-triggered
+ *    mutations flow through inputManager.dispatchAction() ->
+ *    gameManager, exactly as GDD §19 describes ("sends user actions to
+ *    gameManager").
+ *  - No `alert`/`confirm`/`prompt` anywhere (rule 11) — this file uses
+ *    none, and neither does inputManager.js.
  */
 
 import { createLogger } from './logger.js';
@@ -42,6 +59,7 @@ import * as gameState from './gameState.js';
 import * as cardManager from './cardManager.js';
 import * as scoreManager from './scoreManager.js';
 import * as iconManager from './iconManager.js';
+import * as inputManager from './inputManager.js';
 
 const log = createLogger('uiManager');
 
@@ -363,8 +381,9 @@ function renderActions() {
   exploreBtn.disabled = !canDecide;
   exploreBtn.appendChild(exploreIcon);
   exploreBtn.appendChild(document.createTextNode(' Explore Further')); // TODO(i18n)
-  // No click handler wired here on purpose — this Prompt is a read-only
-  // renderer only. Prompt 013 wires this button to gameManager.revealNextCard().
+  // Routed through inputManager's single seam (see its own header) —
+  // this file never calls gameManager directly.
+  exploreBtn.addEventListener('click', () => inputManager.dispatchAction(inputManager.ACTIONS.EXPLORE_FURTHER));
 
   const returnIcon = renderIconNode(iconManager.resolveIcon('action.returnToShip'));
   const returnBtn = document.createElement('button');
@@ -374,8 +393,9 @@ function renderActions() {
   returnBtn.disabled = !canDecide;
   returnBtn.appendChild(returnIcon);
   returnBtn.appendChild(document.createTextNode(' Return to Ship')); // TODO(i18n)
-  // No click handler wired here either — see above; Prompt 013 wires this
-  // one to gameManager.returnToShip().
+  // Routed through inputManager's single seam (see its own header) —
+  // this file never calls gameManager directly.
+  returnBtn.addEventListener('click', () => inputManager.dispatchAction(inputManager.ACTIONS.RETURN_TO_SHIP));
 
   bar.appendChild(exploreBtn);
   bar.appendChild(returnBtn);

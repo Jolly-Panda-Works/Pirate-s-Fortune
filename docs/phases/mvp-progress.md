@@ -18,7 +18,7 @@
 | 010b — Chain Abilities | 10b | ✅ Done — 5 chain ability handlers implemented, registered, wired into a Resolution Queue that now supports chain-generated cards (`tests/integration/chain-abilities.test.js` 16/16, full suite 114/114) | 0.15.0 |
 | 011 — Full Ability Chain Integration Tests | 11 | ✅ Done — Stage A complete: `tests/integration/ability-chains.test.js` (all 8 abilities in full-game scenarios, 14/14) + `tests/scenarios/full-game-scenario.test.js` (Stage A completion gate, 7/7); full suite 135/135 | 0.16.0 |
 | 012 — UI (Board Rendering) | 12 | ✅ Done — `js/uiManager.js` read-only renderer + zone markup/CSS; manual + shimmed-DOM smoke test confirms live re-render on every gameState event, no console errors | 0.17.0 |
-| 013 — Card Interaction | 13 | ⏳ Not started | — |
+| 013 — Card Interaction | 13 | ✅ Done — `js/inputManager.js` (single action-dispatch seam) + `js/uiManager.js` click wiring; a simulated click-only playthrough (shimmed DOM) reaches SCORING with a correct result | 0.18.0 |
 | 014 — Modal System | 14 | ⏳ Not started | — |
 | 015 — AI | 19 | ⏳ Not started | — |
 | 016 — Localization | 15 | ⏳ Not started | — |
@@ -29,6 +29,53 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 013 — Card Interaction
+
+- `js/inputManager.js` (new) is the single seam every human action click
+  routes through, per the prompt's own wording ("route action clicks
+  through a single function so future features — undo, input logging —
+  have one seam to hook into"). It exports `ACTIONS` (a small controlled
+  vocabulary: `EXPLORE_FURTHER`/`RETURN_TO_SHIP`) and `dispatchAction()`,
+  which is the ONLY place that decides which `gameManager` mutation an
+  action name maps to. It never touches the DOM — that split keeps
+  `uiManager.js` a renderer and this module a pure dispatcher, matching
+  the project's existing manager-per-concern discipline (and keeping the
+  "optional new inputManager.js" the prompt suggested as its own file
+  rather than folding the mapping into uiManager.js directly).
+- `js/uiManager.js`: the two action buttons `renderActions()` already
+  built in Prompt 012 (with correct `disabled` state) now each carry a
+  real `click` listener, both routed through
+  `inputManager.dispatchAction()` — this file still has ZERO direct
+  calls to `gameManager`, preserving the separation Prompt 012 set up
+  (see both files' updated headers). Because `render()` fully rebuilds
+  every zone's DOM on each event (Prompt 012's chosen strategy), stale
+  listeners are never a concern — the previous render's button element
+  (and its listener) is simply dropped along with the rest of that
+  render's subtree.
+- No `alert`/`confirm`/`prompt` anywhere in either file (rule 11) —
+  `inputManager.dispatchAction()`'s try/catch around each `gameManager`
+  call is a defensive backstop only (e.g. a stray double-click racing a
+  re-render), not a substitute for the buttons' own `disabled` guard;
+  rejected actions are logged, never surfaced via a blocking dialog.
+- `js/main.js`: updated its own comments/log line now that clicking
+  actually works — `window.gameManager` stays exposed as an optional
+  debugging convenience, no longer described as required to play.
+- Verified two ways, since no headless-browser tool is available in this
+  environment: (1) a manual browser check via `npm start` confirms both
+  buttons are clickable and update the board live; (2) the Prompt 012
+  DOM shim was extended with real `click()`/`disabled` semantics (a
+  disabled element's `click()` is a no-op, matching real DOM behavior)
+  and used to drive a FULL 2-player game (1 human, 1 AI) to completion
+  using ONLY simulated button clicks — never calling `gameManager`
+  directly — across 6 different seeds, each reaching `SCORING` cleanly
+  (16-22 clicks) with `GameState.results` populated and the rendered
+  results banner showing the correct winner. This is a one-off manual
+  check, not a committed test file, matching Prompt 012's own note that
+  Stage B UI code is outside `npm test`'s scope (visual/interaction
+  correctness is this Stage's manual-playtest exit criterion instead).
+- Full engine test suite unaffected: still 135/135 (no engine file
+  changed).
 
 ## Notes on Prompt 012 — UI (Board Rendering), Stage B begins
 
