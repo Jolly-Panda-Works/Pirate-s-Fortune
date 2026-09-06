@@ -13,10 +13,13 @@
  *     mid-resolution (turnManager.js's resolveAbility()) for a human's
  *     real target selection. Clicking an option calls
  *     inputManager.dispatchAction(ACTIONS.CHOOSE_ABILITY_TARGET, option) —
- *     which is the SAME resume path (gameManager.chooseAbilityTarget() ->
- *     turnManager.resolveAbilityChoice()) an AI's future deterministic
- *     choice (Prompt 015) will also call, per that prompt's own "same
- *     code path, different input source". No cancel/skip button exists:
+ *     the human resume path (gameManager.chooseAbilityTarget() ->
+ *     turnManager.resolveAbilityChoice()). An AI's own deterministic
+ *     choice (playerManager.chooseAbilityTarget(), Prompt 015) shares only
+ *     the target-context-building logic with this path — it resolves
+ *     immediately inside turnManager.resolveAbility() itself and never
+ *     reaches this modal at all, since it never pauses. No cancel/skip
+ *     button exists here:
  *     resolveAbility() only ever pauses when at least one real eligible
  *     target exists, so a selection is always mandatory once the modal is
  *     showing.

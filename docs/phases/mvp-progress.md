@@ -20,7 +20,7 @@
 | 012 — UI (Board Rendering) | 12 | ✅ Done — `js/uiManager.js` read-only renderer + zone markup/CSS; manual + shimmed-DOM smoke test confirms live re-render on every gameState event, no console errors | 0.17.0 |
 | 013 — Card Interaction | 13 | ✅ Done — `js/inputManager.js` (single action-dispatch seam) + `js/uiManager.js` click wiring; a simulated click-only playthrough (shimmed DOM) reaches SCORING with a correct result | 0.18.0 |
 | 014 — Modal System | 14 | ✅ Done — `js/modalManager.js` + `css/modal.css`; new `PLAYER_CHOICE` phase in `turnManager.js`/`gameState.js` for real Cannon/Dagger/Anchor/Map target selection; click+modal DOM-shim playthrough across 14 seeds reaches SCORING cleanly | 0.19.0 |
-| 015 — AI | 19 | ⏳ Not started | — |
+| 015 — AI | 19 | ✅ Done — `js/playerManager.js` implemented (MVP threshold decision + deterministic first-eligible-option ability targeting, GDD §15/§17); `turnManager.js`'s PLAYER_DECISION and RESOLVE_ABILITY now call into it for every AI player (`tests/unit/player-manager.test.js` 14/14, `tests/integration/ai-ability-targeting.test.js` 7/7, full suite 155/155) | 0.20.0 |
 | 016 — Localization | 15 | ⏳ Not started | — |
 | 017 — Responsive / Landscape UI | 16 | ⏳ Not started | — |
 | 018 — Animations | 17 | ⏳ Not started | — |
@@ -43,10 +43,10 @@
   human current player with ≥1 real eligible option pauses at
   PLAYER_CHOICE (storing the request via the new
   `gameState.setPendingAbilityChoice()`); anything else (an AI player —
-  real AI targeting is Prompt 015's own "same code path, different input
-  source" — a human with nothing eligible, or a non-targeted ability like
-  Compass/Captain Shield/Sea Serpent/Treasure Chest+Golden Key) resolves
-  immediately exactly as Stage A left it. A new `resolveAbilityChoice()`
+  real AI targeting landed in Prompt 015, see below — a human with
+  nothing eligible, or a non-targeted ability like Compass/Captain
+  Shield/Sea Serpent/Treasure Chest+Golden Key) resolves immediately
+  exactly as Stage A left it. A new `resolveAbilityChoice()`
   resumes the pause — validates the selection against the pending
   options, builds the AbilityContext generically from whichever fields
   the selection itself carries (`targetPlayerId`/`targetCardId` for
@@ -145,6 +145,70 @@
   prompt — the Cannon test above was split into two, one for the pause
   case and one for the no-eligible-target case; every other update above
   is a same-count rewrite of an existing test, not a net addition).
+
+## Notes on Prompt 015 — AI
+
+- `js/playerManager.js` (previously an empty architectural stub) now
+  owns every decision an AI player makes (GDD §15/§17):
+  - `decideAction(expeditionSize)` — the GDD §15 MVP threshold
+    (Explore Further below 4 cards, Return to Ship at 4+). Pure function
+    of the Expedition Area size; no GameState access needed.
+  - `chooseAbilityTarget(options)` — deterministically returns the FIRST
+    entry of whatever eligible-options array a targeted ability's own
+    `getEligibleTargets()` produced (Cannon/Dagger: `{targetPlayerId,
+    targetCardId, defId}`; Anchor: `{cargoCardId, defId}`; Map:
+    `{targetCardId, defId}`) — "no smart targeting yet" (GDD §17).
+    Throws on an empty/invalid array rather than silently picking
+    nothing.
+- `js/turnManager.js` changes:
+  - **Removed** the Prompt 005 placeholder `aiDecision()` +
+    `AI_RETURN_THRESHOLD` that used to live inline; `playerDecision()`
+    now calls `playerManager.decideAction()` instead — same threshold
+    value/behavior, just relocated to the module GDD §15/§17 assign this
+    responsibility to.
+  - `resolveAbility()`'s targeted-ability branch (Prompt 014) now also
+    covers an AI current player: instead of always falling through to
+    "resolve with no target" (the Stage A/B placeholder), an AI with at
+    least one real eligible option calls
+    `playerManager.chooseAbilityTarget()` and resolves IMMEDIATELY — no
+    PLAYER_CHOICE pause, ever, for an AI. Only a human still pauses.
+  - New shared helper `buildAbilityTargetContext(selection)` factors out
+    the generic option-shape-to-AbilityContext mapping
+    (`targetPlayerId`/`targetCardId`/`cargoCardId` — never a per-ability
+    switch, rule 4) that used to live only inside `resolveAbilityChoice()`
+    — now used by BOTH the human resume path and the new AI immediate
+    path. This is the "same code path, different input source" every
+    Prompt 014 comment had already promised.
+- **Behavioral consequence, expected and correct**: since AI players now
+  actually target Pirate Dagger/Lucky Anchor/Treasure Map (rather than
+  always no-opping), a single AI turn's Expedition Area can grow by MORE
+  than the number of literal cards drawn from the deck — each of those
+  three abilities can inject one extra card into the same expedition via
+  the Resolution Queue (GDD §14.4) before the GDD §15 threshold is next
+  checked. `tests/integration/full-loop-stub.test.js`'s
+  "recorded turns is bounded" test had a stale `cardsSecured/cardsLost
+  <= 4` assumption left over from the pre-Prompt-015 no-targeting
+  placeholder; relaxed to the real ceiling (total card pool, 60) with an
+  explanatory comment — a same-purpose fix, not a weakened test (the
+  file's own total-conservation check elsewhere already guards the real
+  invariant: nothing is created or destroyed).
+- New test coverage: `tests/unit/player-manager.test.js` (14 tests —
+  `decideAction()`'s threshold boundaries, `chooseAbilityTarget()`'s
+  determinism/error handling across every eligible-option shape) and
+  `tests/integration/ai-ability-targeting.test.js` (7 tests — Cannon,
+  Pirate Dagger, Lucky Anchor, and Treasure Map each end-to-end through
+  `turnManager` with an AI current player, both the real-target and
+  no-eligible-target cases, plus a regression guard confirming a human
+  still pauses at PLAYER_CHOICE exactly as before).
+- Full engine test suite: 155/155 passing (up from 155 unit+integration
+  tests total after Prompt 014's 136, plus this prompt's own 14 + 7 new
+  tests, minus one existing test rewritten in place — see above).
+- A full 4-player game (1 human, 3 AI) is playable start to finish in the
+  browser via clicks only (Prompt 012/013's click+modal DOM-shim
+  technique, extended to mixed human/AI player lists), reaching a correct
+  final score with the AI opponents now genuinely exploring, returning,
+  and targeting abilities on their own — no `alert`/`confirm`/`prompt`
+  calls anywhere, matching this Stage's own exit criteria.
 
 ## Notes on Prompt 013 — Card Interaction
 

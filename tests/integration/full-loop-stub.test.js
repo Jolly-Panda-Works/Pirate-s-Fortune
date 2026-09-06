@@ -11,11 +11,13 @@
  *
  * To keep validating a genuinely unattended full game (round-robin order,
  * determinism, deck exhaustion, no thrown errors) this file now uses
- * all-AI players, so the placeholder threshold decision
- * (js/turnManager.js's aiDecision — explore while Expedition Area size < 4,
- * else return) drives the whole game to completion with no external calls.
- * Every card still resolves "safe" — real duplicate detection isn't wired
- * in until Prompt 006.
+ * all-AI players, so playerManager.decideAction()'s GDD §15 threshold
+ * (explore while Expedition Area size < 4, else return — relocated from
+ * turnManager.js's own placeholder by Prompt 015, same behavior) drives
+ * the whole game to completion with no external calls. Since Prompt 015,
+ * AI players also target their own Cannon/Pirate Dagger/Lucky
+ * Anchor/Treasure Map abilities (playerManager.chooseAbilityTarget(),
+ * first eligible option) rather than always resolving untargeted.
  *
  * Run with: node --test tests/integration/full-loop-stub.test.js
  */
@@ -85,19 +87,31 @@ test('the number of recorded turns is bounded by the Treasure Deck size, with va
     lostLootSeed: 'history-lostloot',
   });
 
-  // Initial Treasure Deck is exactly 50 cards (GDD §5.3). Under the
-  // placeholder AI threshold (explore while Expedition Area size < 4),
-  // most turns secure/lose up to 4 cards, so turn count is well under 50
-  // but always at least 1 and never more than 50.
+  // Initial Treasure Deck is exactly 50 cards (GDD §5.3), so turn count is
+  // always at least 1 and never more than 50.
+  //
+  // Per-decision card counts are no longer capped at 4 (unlike the
+  // Prompt 005 placeholder era this test originally targeted): the AI's
+  // GDD §15 threshold (explore while Expedition Area size < 4) still
+  // checks size after EVERY card resolves, but since Prompt 015 an AI
+  // can now actually target Pirate Dagger/Lucky Anchor/Treasure Map,
+  // each of which can inject one extra card into the SAME expedition via
+  // the Resolution Queue (GDD §14.4) beyond whatever was just drawn from
+  // the deck — e.g. a 4th literal draw happens to be Pirate Dagger,
+  // which immediately steals a 5th card into the same expedition before
+  // the threshold is ever checked, so "return" can legitimately secure
+  // more than 4. The only real ceiling is the total card pool (initial
+  // Treasure Deck + initial Lost Loot = 60 — see the totalCargo
+  // conservation check above).
   const history = gameState.getTurnHistory();
   assert.ok(history.length >= 1);
   assert.ok(history.length <= 50);
   for (const entry of history) {
     if (entry.decision === 'return') {
-      assert.ok(entry.cardsSecured >= 1 && entry.cardsSecured <= 4);
+      assert.ok(entry.cardsSecured >= 1 && entry.cardsSecured <= 60);
     } else {
       assert.equal(entry.decision, 'shipwreck');
-      assert.ok(entry.cardsLost >= 1 && entry.cardsLost <= 4);
+      assert.ok(entry.cardsLost >= 1 && entry.cardsLost <= 60);
     }
   }
 });

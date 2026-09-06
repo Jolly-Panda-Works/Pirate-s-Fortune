@@ -10,13 +10,14 @@
  * the AbilityContext:
  *   context.targetCardId - the instanceId of the CardInstance, within
  *                          Lost Loot, to retrieve. If omitted, defaults
- *                          to the first eligible card in Lost Loot (a
- *                          defensive fallback for automated/no-UI paths —
- *                          e.g. an AI player, until Prompt 015 gives it a
- *                          real deterministic-choice function to call
- *                          here instead — not a real "auto-pick" rule for
- *                          human play, which always supplies an explicit
- *                          selection via the modal).
+ *                          to the first eligible card in Lost Loot — a
+ *                          defensive fallback only, since both real
+ *                          callers always supply an explicit selection:
+ *                          a human via the modal, an AI via
+ *                          playerManager.chooseAbilityTarget() (Prompt
+ *                          015), whose choice already IS "first eligible
+ *                          option" by design (GDD §17), so this fallback
+ *                          and the AI's real choice happen to agree.
  * This module's own getEligibleTargets() (below) is what modalManager.js
  * (via turnManager.js) uses to render the actual selectable list — it
  * returns every card currently in Lost Loot, since nothing in the

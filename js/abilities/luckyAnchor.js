@@ -56,7 +56,7 @@ function handleLuckyAnchor(context, enqueue) {
   const cargoCardId = context.cargoCardId ?? null;
 
   if (!currentPlayerId || !cargoCardId) {
-    log.info('Lucky Anchor: no cargo card selected — no-op (AI targeting arrives Prompt 015; a human with an empty own cargo also lands here)', {
+    log.info('Lucky Anchor: no cargo card selected — no-op (a human or an AI with an empty own cargo lands here — Prompt 015)', {
       currentPlayerId,
     });
     return;

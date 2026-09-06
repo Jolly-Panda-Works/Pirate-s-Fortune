@@ -7,6 +7,52 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.20.0] - Prompt 015: AI
+
+### Added
+- `js/playerManager.js` (previously an empty architectural stub) now
+  implements every AI decision (GDD §15/§17):
+  - `decideAction(expeditionSize)` — the GDD §15 MVP threshold (Explore
+    Further below 4 cards, Return to Ship at 4+).
+  - `chooseAbilityTarget(options)` — deterministically returns the first
+    entry of a targeted ability's own `getEligibleTargets()` list (Cannon/
+    Dagger/Anchor/Map); throws on an empty/invalid array.
+  Both are pure and synchronous — no GameState access, no timers.
+- `tests/unit/player-manager.test.js` (14 tests) and
+  `tests/integration/ai-ability-targeting.test.js` (7 tests) covering
+  both functions end-to-end through `turnManager`.
+
+### Changed
+- `js/turnManager.js`: `playerDecision()` now calls
+  `playerManager.decideAction()` instead of the removed Prompt 005
+  placeholder (`aiDecision()`/`AI_RETURN_THRESHOLD`) — identical
+  threshold behavior, just relocated. `resolveAbility()`'s targeted-
+  ability branch now also covers an AI current player: with at least one
+  real eligible option, it calls `playerManager.chooseAbilityTarget()`
+  and resolves immediately (no PLAYER_CHOICE pause — only a human still
+  pauses). New shared helper `buildAbilityTargetContext()` factors the
+  option-shape-to-AbilityContext mapping out of `resolveAbilityChoice()`
+  so both the human and AI paths use the same code.
+
+### Fixed
+- `tests/integration/full-loop-stub.test.js`'s "recorded turns is
+  bounded" test had a stale `cardsSecured/cardsLost <= 4` assumption
+  from the pre-Prompt-015 no-targeting placeholder era. Since AI players
+  now actually target Pirate Dagger/Lucky Anchor/Treasure Map, a single
+  turn's Expedition Area can grow by more than the number of cards
+  literally drawn (each of those three abilities can inject one extra
+  card via the Resolution Queue before the next threshold check).
+  Relaxed to the real ceiling (60, the total card pool).
+
+### Verified
+- A hand-rolled DOM shim (no jsdom dependency, matching the Prompt
+  012/013/014 precedent) drove a full 4-player game (1 human, 3 AI) to
+  `SCORING` using ONLY simulated clicks — Explore Further/Return to Ship
+  AND modal target selections — across 6 different seeds, every one
+  completing cleanly with a correct scoring result and the AI opponents
+  genuinely exploring, returning, and targeting abilities on their own.
+- Full engine test suite: 155/155.
+
 ## [0.19.0] - Prompt 014: Modal System
 
 ### Added

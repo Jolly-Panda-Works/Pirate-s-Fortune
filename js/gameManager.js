@@ -23,8 +23,8 @@
  * decision that would silently desync GameState.
  *
  * AI players never need revealNextCard()/returnToShip() — turnManager
- * resolves their PLAYER_DECISION itself using a placeholder threshold
- * (real AI arrives in Prompt 015).
+ * resolves their PLAYER_DECISION itself via playerManager.decideAction()
+ * (GDD §15 MVP threshold, Prompt 015).
  *
  * Targeted-ability choices (Prompt 014 — GDD §14.2/14.4/14.5/14.7):
  * chooseAbilityTarget() is the equivalent resume function for the new

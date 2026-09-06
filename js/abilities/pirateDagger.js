@@ -60,7 +60,7 @@ function handlePirateDagger(context, enqueue) {
   const targetCardId = context.targetCardId ?? null;
 
   if (!targetPlayerId || !targetCardId) {
-    log.info('Pirate Dagger: no target supplied — no-op (AI targeting arrives Prompt 015; a human with no eligible target also lands here)', {
+    log.info('Pirate Dagger: no target supplied — no-op (a human or an AI with no eligible target lands here — Prompt 015)', {
       currentPlayerId,
     });
     return;

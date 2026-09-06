@@ -10,6 +10,7 @@
  * Updated: Phase 9 (Ability Framework) — Prompt 009.
  * Updated: Phase 10a (Single-Resolution Abilities) — Prompt 010.
  * Updated: Phase 14 (Modal System) — Prompt 014.
+ * Updated: Phase 19 (AI), pulled forward into Stage B — Prompt 015.
  *
  *   GAME_INIT -> PLAYER_TURN_START -> DRAW_CARD -> REVEAL_CARD ->
  *   CHECK_DUPLICATE -> (duplicate: SHIPWRECK -> END_TURN)
@@ -18,6 +19,9 @@
  *                            exists: pause at PLAYER_CHOICE, resumed by
  *                            resolveAbilityChoice() -> back into
  *                            RESOLVE_ABILITY's own continuation)
+ *                        -> (targeted ability, AI, eligible target
+ *                            exists: playerManager.chooseAbilityTarget()
+ *                            picks one immediately, no pause)
  *                        -> PLAYER_DECISION ->
  *                        (explore: DRAW_CARD) | (return: RETURN_TO_SHIP -> END_TURN))
  *   END_TURN -> (deck empty? GAME_END -> SCORING : next player -> PLAYER_TURN_START)
@@ -87,11 +91,27 @@
  *    needs to resolve each Ship Cargo CardInstance's `value`/`type` by
  *    `defId`.
  *
+ * Prompt 015 scope (per docs/prompts/stage-b-minimal-ui.md, GDD §15/§17):
+ *  - playerManager.js (new) is now the ONLY source of AI decisions.
+ *    PLAYER_DECISION's AI branch calls playerManager.decideAction()
+ *    instead of the local placeholder threshold function Prompt 005 used
+ *    to define here (removed) — same threshold value/behavior, just
+ *    relocated to the module GDD §15/§17 assign this responsibility to.
+ *  - RESOLVE_ABILITY's targeted-ability branch (Prompt 014) now also
+ *    handles an AI current player: instead of always falling through to
+ *    "resolve with no target" (Stage A/B's deliberate placeholder),
+ *    an AI with at least one real eligible option now calls
+ *    playerManager.chooseAbilityTarget() (first eligible option,
+ *    deterministic per GDD §17) and resolves immediately through the
+ *    same buildAbilityTargetContext() mapping a human's PLAYER_CHOICE
+ *    resumption uses — see resolveAbility()/buildAbilityTargetContext()
+ *    below. An AI never pauses at PLAYER_CHOICE; only a human does.
+ *
  * Prompt 005 scope (per docs/prompts/stage-a-core-engine.md, GDD §1.1/§2.2):
  *  - PLAYER_DECISION is now real for AI players: a placeholder threshold
  *    decision (explore while Expedition Area size < 4, else return —
- *    GDD §15 MVP AI; the real AI arrives in Prompt 015) resolves
- *    immediately and synchronously, same call stack.
+ *    GDD §15 MVP AI) resolves immediately and synchronously, same call
+ *    stack. (Relocated into playerManager.js by Prompt 015, above.)
  *  - PLAYER_DECISION PAUSES for human players (current.isAI === false):
  *    this function returns without calling drawCard()/returnToShip()
  *    itself. The state machine sits at PLAYER_DECISION until gameManager.js
@@ -113,11 +133,11 @@
  * a targeted ability (Cannon/Pirate Dagger/Lucky Anchor/Treasure Map)
  * whenever BOTH of these hold: the current player is human, AND
  * abilityManager.getEligibleTargets() finds at least one real option.
- * Otherwise (an AI player — real AI targeting is Prompt 015's own
- * "same code path, different input source" — or a human with nothing
- * eligible, e.g. no rival has any cargo yet) resolution continues
- * immediately with no target, exactly as Stage A left it: a deliberate,
- * already-tested no-op. modalManager.js (also Prompt 014) is what a
+ * (An AI player instead resolves immediately with a deterministic target
+ * — Prompt 015, see that Prompt's own scope note above; only a human
+ * with nothing eligible, e.g. no rival has any cargo yet, still falls
+ * through to "resolve with no target", exactly as Stage A left it: a
+ * deliberate, already-tested no-op.) modalManager.js (also Prompt 014) is what a
  * human's choice actually comes from — it renders
  * gameState.getPendingAbilityChoice() into #modal-root and, on a click,
  * calls gameManager.chooseAbilityTarget(selection), which calls this
@@ -146,6 +166,7 @@ import * as collectManager from './collectManager.js';
 import * as scoreManager from './scoreManager.js';
 import * as abilityResolver from './abilityResolver.js';
 import * as abilityManager from './abilityManager.js';
+import * as playerManager from './playerManager.js';
 import './abilities/index.js';
 
 const log = createLogger('turnManager');
@@ -160,31 +181,6 @@ const { PHASES } = gameState;
  * something has to remember which definitions apply to this game.
  */
 let gameCardDefinitions = null;
-
-// ---------------------------------------------------------------------------
-// Stubbed extension points (real implementations arrive in later prompts).
-// Isolated as named functions so a later prompt swaps the body, not the
-// call sites in the state machine below.
-// ---------------------------------------------------------------------------
-
-/**
- * Placeholder MVP AI threshold (GDD §15): explore while the Expedition
- * Area has fewer than this many cards, return once it reaches this size.
- * Real AI (weighing deck composition, rival scores, risk, etc. — GDD §17)
- * arrives in Prompt 015; this constant/function exist only so
- * playerDecision() has stable, legal, non-blocking AI behavior until then.
- */
-const AI_RETURN_THRESHOLD = 4;
-
-/**
- * Placeholder AI decision. Pure function of expedition size so it's
- * trivially testable/deterministic on its own.
- * @param {number} expeditionSize
- * @returns {'explore'|'return'}
- */
-function aiDecision(expeditionSize) {
-  return expeditionSize >= AI_RETURN_THRESHOLD ? 'return' : 'explore';
-}
 
 // ---------------------------------------------------------------------------
 // State machine steps — one named function per state in the diagram.
@@ -351,10 +347,16 @@ function shipwreck(expeditionCard) {
  * Compass/Captain Shield/Sea Serpent/Treasure Chest+Golden Key/Gold Coin
  * all return false here and skip straight to finishResolveAbility(),
  * unchanged from Prompt 010/010b. For a targeted ability
- * (Cannon/Dagger/Anchor/Map), a human current player with at least one
- * real eligible option PAUSES at PLAYER_CHOICE instead — see this
- * function's own header block above for the full rationale — and
- * resolveAbilityChoice() (below) is what resumes it.
+ * (Cannon/Dagger/Anchor/Map) with at least one real eligible option: a
+ * human current player PAUSES at PLAYER_CHOICE — see this function's own
+ * header block above for the full rationale — and resolveAbilityChoice()
+ * (below) is what resumes it; an AI current player (Prompt 015) instead
+ * resolves immediately, using playerManager.chooseAbilityTarget() to pick
+ * a target deterministically (first eligible option, GDD §17) and
+ * buildAbilityTargetContext() (below) to turn that choice into the same
+ * AbilityContext fields a human's own selection would produce — the
+ * "same code path, different input source" this codebase's Prompt 014
+ * notes already promised.
  */
 function resolveAbility(expeditionCard) {
   gameState.setPhase(PHASES.RESOLVE_ABILITY);
@@ -370,9 +372,19 @@ function resolveAbility(expeditionCard) {
   // re-sets it immediately below if this card IS one.
   gameState.clearAbilityContext();
 
-  if (current && !current.isAI && abilityManager.needsTargetSelection(abilityKey)) {
+  if (current && abilityManager.needsTargetSelection(abilityKey)) {
     const eligibleOptions = abilityManager.getEligibleTargets(abilityKey, current.id);
     if (eligibleOptions.length > 0) {
+      if (current.isAI) {
+        const selection = playerManager.chooseAbilityTarget(eligibleOptions);
+        log.debug('AI ability target selected — resolving immediately', {
+          playerId: current.id,
+          ability: abilityKey,
+          selection,
+        });
+        return finishResolveAbility(expeditionCard, definition, buildAbilityTargetContext(selection));
+      }
+
       gameState.setPendingAbilityChoice({
         ability: abilityKey,
         expeditionCardInstanceId: expeditionCard.instanceId,
@@ -397,11 +409,42 @@ function resolveAbility(expeditionCard) {
 }
 
 /**
- * Shared tail end of ability resolution — called either directly from
- * resolveAbility() (no target needed, or none eligible) or from
- * resolveAbilityChoice() (a human's — or, Prompt 015, an AI's — target
- * just arrived). Exactly the Stage A resolveAbility() body, factored out
- * so both call sites share one Shipwreck-check/continuation path.
+ * Builds the target-selection AbilityContext fields generically, straight
+ * from whichever field names `selection` itself carries
+ * (`targetPlayerId`/`targetCardId` for Cannon/Dagger/Map, `cargoCardId`
+ * for Anchor) — never a hard-coded per-ability switch (rule 4), since
+ * every ability's own getEligibleTargets() already chose its own option
+ * shape and every ability's own handler already reads exactly those
+ * AbilityContext field names (see each abilities/*.js module's header).
+ * Shared by both the human path (resolveAbilityChoice(), resuming a
+ * PLAYER_CHOICE pause) and the AI path (resolveAbility() above, resolving
+ * immediately, Prompt 015) — the one place this mapping is written.
+ *
+ * @param {object} selection - one of a targeted ability's own
+ *   getEligibleTargets() options
+ * @returns {object} AbilityContext fields to merge in
+ */
+function buildAbilityTargetContext(selection) {
+  const targetContext = {};
+  if (selection.targetPlayerId) {
+    targetContext.targetPlayer = gameState.getPlayer(selection.targetPlayerId);
+  }
+  if (selection.targetCardId) {
+    targetContext.targetCardId = selection.targetCardId;
+  }
+  if (selection.cargoCardId) {
+    targetContext.cargoCardId = selection.cargoCardId;
+  }
+  return targetContext;
+}
+
+/**
+ * Shared tail end of ability resolution — called from resolveAbility()
+ * itself (no target needed, none eligible, or an AI's immediate
+ * deterministic target, Prompt 015) or from resolveAbilityChoice() (a
+ * human's target, just resumed from a PLAYER_CHOICE pause). Exactly the
+ * Stage A resolveAbility() body, factored out so every call site shares
+ * one Shipwreck-check/continuation path.
  *
  * @param {object} expeditionCard - the CardInstance whose ability this is
  * @param {object} definition - its card definition (for `.ability`)
@@ -442,10 +485,12 @@ function finishResolveAbility(expeditionCard, definition, targetContext) {
  * the option objects gameState.getPendingAbilityChoice().options offered
  * (compared by value, via JSON serialization — every option is already a
  * small, flat, JSON-safe object, since abilityManager's
- * getEligibleTargets() functions build them that way) — this is
- * deliberately the SAME function an AI's future deterministic choice
- * (Prompt 015) will also call, per the prompt's own "same code path,
- * different input source".
+ * getEligibleTargets() functions build them that way). An AI's own
+ * targeted-ability choice (Prompt 015) never pauses at PLAYER_CHOICE at
+ * all — see resolveAbility() above — so it never calls this function;
+ * the two paths share only buildAbilityTargetContext(), the "same code
+ * path, different input source" this codebase's Prompt 014 notes
+ * promised.
  *
  * Builds the target-selection AbilityContext fields generically, straight
  * from whichever field names `selection` itself carries
@@ -478,17 +523,7 @@ function resolveAbilityChoice(selection) {
     throw new Error('turnManager.resolveAbilityChoice: the pending choice\'s own card is no longer in the Expedition Area');
   }
   const definition = cardManager.getDefinition(gameCardDefinitions, expeditionCard.defId);
-
-  const targetContext = {};
-  if (selection.targetPlayerId) {
-    targetContext.targetPlayer = gameState.getPlayer(selection.targetPlayerId);
-  }
-  if (selection.targetCardId) {
-    targetContext.targetCardId = selection.targetCardId;
-  }
-  if (selection.cargoCardId) {
-    targetContext.cargoCardId = selection.cargoCardId;
-  }
+  const targetContext = buildAbilityTargetContext(selection);
 
   gameState.clearPendingAbilityChoice();
   log.info('Human ability target selected — resuming RESOLVE_ABILITY', {
@@ -503,9 +538,9 @@ function resolveAbilityChoice(selection) {
 /**
  * PLAYER_DECISION -> DRAW_CARD (explore) | RETURN_TO_SHIP (return).
  *
- * AI players (current.isAI === true) resolve immediately using the
- * placeholder threshold decision (aiDecision()) — same call stack, no
- * pause.
+ * AI players (current.isAI === true) resolve immediately using
+ * playerManager.decideAction() (GDD §15 MVP threshold, Prompt 015) —
+ * same call stack, no pause.
  *
  * Human players PAUSE here: this function returns the PLAYER_DECISION
  * phase without calling drawCard() or returnToShip() itself. The call
@@ -526,8 +561,8 @@ function playerDecision() {
 
   if (current?.isAI) {
     const expeditionSize = gameState.getExpeditionArea().length;
-    const decision = aiDecision(expeditionSize);
-    log.debug('AI player decision (placeholder threshold — real AI arrives Prompt 015)', {
+    const decision = playerManager.decideAction(expeditionSize);
+    log.debug('AI player decision', {
       playerId: current.id,
       expeditionSize,
       decision,
