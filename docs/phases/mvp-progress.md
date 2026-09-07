@@ -21,7 +21,7 @@
 | 013 — Card Interaction | 13 | ✅ Done — `js/inputManager.js` (single action-dispatch seam) + `js/uiManager.js` click wiring; a simulated click-only playthrough (shimmed DOM) reaches SCORING with a correct result | 0.18.0 |
 | 014 — Modal System | 14 | ✅ Done — `js/modalManager.js` + `css/modal.css`; new `PLAYER_CHOICE` phase in `turnManager.js`/`gameState.js` for real Cannon/Dagger/Anchor/Map target selection; click+modal DOM-shim playthrough across 14 seeds reaches SCORING cleanly | 0.19.0 |
 | 015 — AI | 19 | ✅ Done — `js/playerManager.js` implemented (MVP threshold decision + deterministic first-eligible-option ability targeting, GDD §15/§17); `turnManager.js`'s PLAYER_DECISION and RESOLVE_ABILITY now call into it for every AI player (`tests/unit/player-manager.test.js` 14/14, `tests/integration/ai-ability-targeting.test.js` 7/7, full suite 155/155) | 0.20.0 |
-| 016 — Localization | 15 | ⏳ Not started | — |
+| 016 — Localization | 15 | ✅ Done — `js/localizationManager.js` implemented (EN/FA + RTL, GDD §20); `data/localization.json` full symmetric string tree (64 keys); every `uiManager.js`/`modalManager.js` string routed through `t()`/`formatNumber()`; language switcher wired in `index.html`; CSS logical properties confirmed (`tests/unit/localization.test.js` 7/7, full suite 162/162) | 0.21.0 |
 | 017 — Responsive / Landscape UI | 16 | ⏳ Not started | — |
 | 018 — Animations | 17 | ⏳ Not started | — |
 | 019 — Audio | 18 | ⏳ Not started | — |
@@ -29,6 +29,98 @@
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 016 — Localization
+
+- `js/localizationManager.js` (previously an empty architectural stub) now
+  implements EN/FA localization and RTL direction handling (GDD §20):
+  - `t(key, params)` — dotted-key lookup (`"zones.treasureDeck"` ->
+    `strings.zones.treasureDeck`) with `{placeholder}` interpolation.
+    Falls back to English (logged warning) if the key is missing in the
+    active locale, and to an empty string (logged error) if missing in
+    EVERY locale — never renders a raw lookup key to the player.
+  - `loadLocale(langCode)` — a pure lookup against the already-loaded
+    `data/localization.json`, not a re-fetch: the file holds BOTH
+    locales' full string trees in one document, so there is nothing to
+    load over the network again when switching languages.
+  - `setLocale(langCode)` — updates `document.documentElement.lang`/
+    `.dir` (GDD §20: en -> ltr, fa -> rtl), refreshes every static
+    `[data-i18n]`/`[data-i18n-aria-label]` element (the orientation
+    gate's prompt, the switcher's own labels — the one category of UI
+    text living OUTSIDE uiManager.js/modalManager.js's own render()
+    loops), refreshes the switcher's active-button state, then emits a
+    `locale-changed` event through a small internal pub/sub (mirroring
+    gameState.js's own minimal implementation).
+  - `formatNumber(value)` — GDD §20 "number and score formatting should
+    also pass through the localization layer": `Intl.NumberFormat`,
+    `fa-IR` for Persian (renders real Eastern Arabic-Indic digits
+    ۰۱۲۳...), `en-US` otherwise.
+  - `mountSwitcher()` — wires the EN/FA toggle already in `index.html`
+    (`#language-switcher`, one `[data-lang]` button per locale) generically
+    off each button's own `data-lang` attribute, never a hard-coded
+    "en"/"fa" branch, and calls `setLocale()` directly — locale switching
+    has no GameState dependency at all, so it deliberately bypasses
+    inputManager.js's gameManager-routing seam (unlike every real game
+    action) rather than inventing a guard it doesn't need.
+- `data/localization.json`: full EN/FA string trees, 64 symmetric leaf
+  keys — every zone title/empty-state note, both action buttons, all 4
+  targeted abilities' modal titles/prompts, the Compass preview label,
+  a human-readable label per `PHASES` enum value, win/tie messages, all
+  10 card `type` display names, and the language switcher's own labels.
+  Persian pluralization genuinely differs from English here (Persian
+  doesn't inflect a counted noun the way English adds "-s"), so the
+  `*CountOne`/`*CountOther` key pairs intentionally hold IDENTICAL
+  Persian text while still branching in English — not a missed
+  translation, a correct one.
+- `js/uiManager.js` / `js/modalManager.js`: every `// TODO(i18n)` left by
+  Prompt 012/013/014 resolved — all hard-coded English replaced with
+  `localizationManager.t()`/`formatNumber()` calls. `modalManager.js`'s
+  old Stage-B-only `ABILITY_COPY` lookup table is replaced by
+  `getAbilityCopy()`, which reads the same shape straight out of
+  `data/localization.json`'s `abilities.<key>` block instead.
+- `index.html`: added the language switcher (`#language-switcher`,
+  `data-lang="en"`/`data-lang="fa"` buttons); every zone's `aria-label`
+  now also carries a matching `data-i18n-aria-label` so screen-reader
+  text is localized too, not just visible text.
+- CSS: `layout.css`/`cards.css`/`modal.css`'s handful of `margin: 0 0
+  Xpx 0` / `margin-top` physical shorthands converted to logical
+  properties (`margin-block-end`/`margin-block-start`/`margin-block`) —
+  nothing was actually LTR-broken (every value was already symmetric
+  left/right, so RTL rendering was never in danger), but this closes the
+  gap between `layout.css`'s own header claim ("uses logical properties")
+  and what the file actually did, per GDD §29.4 ("RTL must not be
+  retrofitted as a superficial visual layer"). New `.language-switcher`/
+  `.lang-button` rules use `inset-inline-end`/`inset-block-start` so the
+  switcher's corner flips automatically under RTL with zero JS branching.
+- `js/main.js`: now also loads `data/localization.json` at bootstrap and
+  calls `localizationManager.init()` BEFORE `uiManager.init()`/
+  `modalManager.init()`, so their very first render already has real
+  strings rather than empty-locale fallbacks; both modules' `render()` is
+  then subscribed to `localizationManager.onLocaleChange()` — the one
+  place either module's re-render is driven by something other than a
+  GameState event.
+- New test coverage: `tests/unit/localization.test.js` (7 tests) — both
+  locale blocks present with the correct GDD §20 `dir`, full EN/FA key
+  symmetry in both directions, every leaf a non-empty string, and every
+  `{placeholder}` token used in an English string also used in its
+  Persian counterpart (a template with a dropped/renamed placeholder
+  would otherwise silently interpolate nothing at runtime — this test
+  catches that at data-authoring time instead).
+- Full engine test suite: 162/162 passing (155 before this prompt, +7
+  new localization tests, zero regressions).
+- **Verified, not just claimed**: a hand-rolled DOM shim (matching the
+  Prompt 012/013/014/015 precedent) drove a full 4-player game through a
+  real mid-game language switch — confirmed `documentElement.lang`/`dir`
+  flip, every zone re-renders in Persian, Persian digit formatting on
+  every count, a targeted-ability modal correctly shows translated
+  title/prompt text (Pirate Dagger's actual copy: "خنجر دزد دریایی" /
+  "کارت یکی از حریفان را برای دزدیدن انتخاب کنید."), the game reaches
+  SCORING with a correctly-localized results banner, and switching back
+  to English re-renders the banner in English too — with the only
+  leftover Latin-script text anywhere being player names themselves
+  ("AI Rival 2"), which are user/config data, not UI copy, and are
+  correctly left untranslated exactly like a real player's own name
+  would be in any localized game.
 
 ## Notes on Prompt 014 — Modal System
 

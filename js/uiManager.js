@@ -33,10 +33,19 @@
  * manual cleanup — the old element (and its listener) is simply dropped
  * along with the rest of the previous render's DOM subtree.
  *
- * English-only placeholder strings below are intentional for Stage B —
- * every one is marked `// TODO(i18n)` so Prompt 016 (Stage C) can find and
- * replace them with data/localization.json keys without re-deriving which
- * strings need it.
+ * Prompt 016 scope (GDD §20 — Localization): every string this module
+ * renders now goes through localizationManager.t()/formatNumber() instead
+ * of a hard-coded English literal — no leftover English/LTR-only text
+ * once Persian is active. This module still never imports gameState.js's
+ * mutators and still never reaches into modalManager.js's #modal-root;
+ * localizationManager.js is the one new import, used purely for
+ * translation/number-formatting lookups (never GameState, never DOM
+ * outside what this file already owned). Re-render on a locale switch is
+ * wired the same way GameState changes already are: main.js subscribes
+ * this module's own render() to localizationManager.onLocaleChange(),
+ * exactly parallel to its existing gameState.on('*', render) — this file
+ * itself has zero knowledge of *when* it gets called, only *what* to draw
+ * each time.
  *
  * Rules this module must respect (GDD §30):
  *  - Engine-independent is N/A here (this IS the presentation layer) —
@@ -60,6 +69,7 @@ import * as cardManager from './cardManager.js';
 import * as scoreManager from './scoreManager.js';
 import * as iconManager from './iconManager.js';
 import * as inputManager from './inputManager.js';
+import * as localizationManager from './localizationManager.js';
 
 const log = createLogger('uiManager');
 
@@ -146,12 +156,14 @@ function createCardElement(instance, { faceUp = true } = {}) {
 
   const valueEl = document.createElement('span');
   valueEl.className = 'card__value';
-  valueEl.textContent = String(definition.value);
+  valueEl.textContent = localizationManager.formatNumber(definition.value);
   el.appendChild(valueEl);
 
-  // TODO(i18n): card type name should come from data/localization.json,
-  // not the raw `type` string, once Prompt 016 lands.
-  el.title = `${definition.type} (${definition.value})`;
+  // Localized card type name (GDD §20) — never the raw `type` string.
+  el.title = localizationManager.t('cards.tooltip', {
+    type: localizationManager.t(`cardTypes.${definition.type}`),
+    value: localizationManager.formatNumber(definition.value),
+  });
 
   return el;
 }
@@ -173,14 +185,14 @@ function renderCardRow(instances, options) {
 function appendTitle(container, text) {
   const title = document.createElement('h2');
   title.className = 'zone__title';
-  title.textContent = text; // TODO(i18n)
+  title.textContent = text;
   container.appendChild(title);
 }
 
 function appendEmptyNote(container, text) {
   const note = document.createElement('p');
   note.className = 'zone__empty';
-  note.textContent = text; // TODO(i18n)
+  note.textContent = text;
   container.appendChild(note);
 }
 
@@ -194,7 +206,7 @@ function appendEmptyNote(container, text) {
 function renderTreasureDeck() {
   const container = els.treasureDeck;
   container.innerHTML = '';
-  appendTitle(container, 'Treasure Deck');
+  appendTitle(container, localizationManager.t('zones.treasureDeck'));
 
   const deck = gameState.getTreasureDeck();
   const pile = document.createElement('div');
@@ -209,18 +221,19 @@ function renderTreasureDeck() {
 
   const count = document.createElement('p');
   count.className = 'zone__count';
-  count.textContent = `${deck.length} card${deck.length === 1 ? '' : 's'} remaining`; // TODO(i18n)
+  const countKey = deck.length === 1 ? 'zones.treasureDeckCountOne' : 'zones.treasureDeckCountOther';
+  count.textContent = localizationManager.t(countKey, { count: localizationManager.formatNumber(deck.length) });
   container.appendChild(count);
 }
 
 function renderLostLoot() {
   const container = els.lostLoot;
   container.innerHTML = '';
-  appendTitle(container, 'Lost Loot');
+  appendTitle(container, localizationManager.t('zones.lostLoot'));
 
   const lostLoot = gameState.getLostLoot();
   if (lostLoot.length === 0) {
-    appendEmptyNote(container, 'Empty');
+    appendEmptyNote(container, localizationManager.t('zones.lostLootEmpty'));
     return;
   }
   // Lost Loot is fully visible: Treasure Map (GDD §14.7) lets a player
@@ -230,21 +243,22 @@ function renderLostLoot() {
 
   const count = document.createElement('p');
   count.className = 'zone__count';
-  count.textContent = `${lostLoot.length} card${lostLoot.length === 1 ? '' : 's'}`; // TODO(i18n)
+  const countKey = lostLoot.length === 1 ? 'zones.lostLootCountOne' : 'zones.lostLootCountOther';
+  count.textContent = localizationManager.t(countKey, { count: localizationManager.formatNumber(lostLoot.length) });
   container.appendChild(count);
 }
 
 function renderExpeditionArea() {
   const container = els.expeditionArea;
   container.innerHTML = '';
-  appendTitle(container, 'Expedition Area');
+  appendTitle(container, localizationManager.t('zones.expeditionArea'));
 
   if (gameState.getShieldActive()) {
     const badge = document.createElement('div');
     badge.className = 'card-row';
     const icon = renderIconNode(iconManager.resolveIcon('captainShield'));
     const label = document.createElement('span');
-    label.textContent = ' Shield Active'; // TODO(i18n)
+    label.textContent = localizationManager.t('combat.shieldActive');
     badge.appendChild(icon);
     badge.appendChild(label);
     container.appendChild(badge);
@@ -252,7 +266,7 @@ function renderExpeditionArea() {
 
   const expedition = gameState.getExpeditionArea();
   if (expedition.length === 0) {
-    appendEmptyNote(container, 'No cards revealed yet');
+    appendEmptyNote(container, localizationManager.t('zones.expeditionEmpty'));
     return;
   }
   container.appendChild(renderCardRow(expedition, { faceUp: true }));
@@ -263,12 +277,13 @@ function renderShipCargo() {
   container.innerHTML = '';
 
   const current = gameState.getCurrentPlayer();
-  // TODO(i18n): player-name interpolation should go through the
-  // localization layer once Prompt 016 lands.
-  appendTitle(container, current ? `${current.name} — Ship Cargo` : 'Ship Cargo');
+  const title = current
+    ? localizationManager.t('zones.shipCargoTitle', { name: current.name })
+    : localizationManager.t('zones.shipCargo');
+  appendTitle(container, title);
 
   if (!current || current.shipCargo.length === 0) {
-    appendEmptyNote(container, 'No cards secured yet');
+    appendEmptyNote(container, localizationManager.t('zones.shipCargoEmpty'));
   } else {
     container.appendChild(renderCardRow(current.shipCargo, { faceUp: true }));
   }
@@ -277,7 +292,9 @@ function renderShipCargo() {
     const score = scoreManager.calculateScore(current, cardDefinitions);
     const scoreLine = document.createElement('p');
     scoreLine.className = 'zone__count';
-    scoreLine.textContent = `Current score preview: ${score}`; // TODO(i18n)
+    scoreLine.textContent = localizationManager.t('zones.currentScorePreview', {
+      score: localizationManager.formatNumber(score),
+    });
     container.appendChild(scoreLine);
   }
 }
@@ -285,13 +302,13 @@ function renderShipCargo() {
 function renderOpponents() {
   const container = els.opponents;
   container.innerHTML = '';
-  appendTitle(container, 'Opponents');
+  appendTitle(container, localizationManager.t('zones.opponents'));
 
   const players = gameState.getPlayers();
   const currentIndex = gameState.getCurrentPlayerIndex();
 
   if (players.length <= 1) {
-    appendEmptyNote(container, 'No opponents yet');
+    appendEmptyNote(container, localizationManager.t('zones.noOpponentsYet'));
     return;
   }
 
@@ -307,12 +324,13 @@ function renderOpponents() {
 
     const name = document.createElement('p');
     name.className = 'opponent__name';
-    // TODO(i18n): "(AI)" suffix should be a localization key.
-    name.textContent = player.isAI ? `${player.name} (AI)` : player.name;
+    name.textContent = player.isAI
+      ? localizationManager.t('players.aiSuffix', { name: player.name })
+      : player.name;
     card.appendChild(name);
 
     if (player.shipCargo.length === 0) {
-      appendEmptyNote(card, 'No cards secured yet');
+      appendEmptyNote(card, localizationManager.t('zones.shipCargoEmpty'));
     } else {
       card.appendChild(renderCardRow(player.shipCargo, { faceUp: true }));
     }
@@ -321,7 +339,9 @@ function renderOpponents() {
       const score = scoreManager.calculateScore(player, cardDefinitions);
       const scoreLine = document.createElement('p');
       scoreLine.className = 'zone__count';
-      scoreLine.textContent = `Score preview: ${score}`; // TODO(i18n)
+      scoreLine.textContent = localizationManager.t('zones.scorePreview', {
+        score: localizationManager.formatNumber(score),
+      });
       card.appendChild(scoreLine);
     }
 
@@ -346,12 +366,12 @@ function renderActions() {
       const winnerNames = results.winners
         .map((id) => gameState.getPlayer(id)?.name ?? id)
         .join(', ');
-      // TODO(i18n): pluralization ("Winner"/"Winners") needs a real
-      // localization plural rule once Prompt 016 lands.
-      const label = results.winners.length > 1 ? 'Winners' : 'Winner';
-      banner.textContent = `Game Over — ${label}: ${winnerNames}`; // TODO(i18n)
+      const label = results.winners.length > 1
+        ? localizationManager.t('results.winnerPlural')
+        : localizationManager.t('results.winnerSingular');
+      banner.textContent = localizationManager.t('results.gameOverBanner', { label, names: winnerNames });
     } else {
-      banner.textContent = 'Game Over'; // TODO(i18n)
+      banner.textContent = localizationManager.t('results.gameOverPlain');
     }
     container.appendChild(banner);
     return;
@@ -359,12 +379,14 @@ function renderActions() {
 
   const status = document.createElement('p');
   status.className = 'status-line';
+  const phaseLabel = localizationManager.t(`status.phases.${phase}`);
   if (current) {
-    // TODO(i18n): player-name interpolation + phase label both need the
-    // localization layer once Prompt 016 lands.
-    status.textContent = `Turn: ${current.name}${current.isAI ? ' (AI)' : ''} — Phase: ${phase}`;
+    const name = current.isAI
+      ? localizationManager.t('players.aiSuffix', { name: current.name })
+      : current.name;
+    status.textContent = localizationManager.t('status.turnLine', { name, phase: phaseLabel });
   } else {
-    status.textContent = `Phase: ${phase}`;
+    status.textContent = localizationManager.t('status.phaseOnly', { phase: phaseLabel });
   }
   container.appendChild(status);
 
@@ -380,7 +402,7 @@ function renderActions() {
   exploreBtn.className = 'action-button';
   exploreBtn.disabled = !canDecide;
   exploreBtn.appendChild(exploreIcon);
-  exploreBtn.appendChild(document.createTextNode(' Explore Further')); // TODO(i18n)
+  exploreBtn.appendChild(document.createTextNode(localizationManager.t('actions.exploreFurther')));
   // Routed through inputManager's single seam (see its own header) —
   // this file never calls gameManager directly.
   exploreBtn.addEventListener('click', () => inputManager.dispatchAction(inputManager.ACTIONS.EXPLORE_FURTHER));
@@ -392,7 +414,7 @@ function renderActions() {
   returnBtn.className = 'action-button';
   returnBtn.disabled = !canDecide;
   returnBtn.appendChild(returnIcon);
-  returnBtn.appendChild(document.createTextNode(' Return to Ship')); // TODO(i18n)
+  returnBtn.appendChild(document.createTextNode(localizationManager.t('actions.returnToShip')));
   // Routed through inputManager's single seam (see its own header) —
   // this file never calls gameManager directly.
   returnBtn.addEventListener('click', () => inputManager.dispatchAction(inputManager.ACTIONS.RETURN_TO_SHIP));

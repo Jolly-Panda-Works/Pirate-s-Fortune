@@ -1,5 +1,5 @@
 {
-  "_comment": "Full string set populated in Phase 15 (Localization). Root document direction: en -> ltr, fa -> rtl (GDD §20).",
+  "_comment": "Full EN/FA string set — Phase 15 (Localization), Prompt 016. Root document direction: en -> ltr, fa -> rtl (GDD §20). Every key MUST exist in both locale blocks (see tests/unit/localization.test.js's symmetry check) — never add a key to only one.",
   "en": {
     "dir": "ltr",
     "orientation": {
@@ -8,6 +8,103 @@
     "actions": {
       "exploreFurther": "Explore Further",
       "returnToShip": "Return to Ship"
+    },
+    "language": {
+      "switcherLabel": "Language",
+      "buttonEn": "EN",
+      "buttonFa": "FA"
+    },
+    "zones": {
+      "opponents": "Opponents",
+      "treasureDeck": "Treasure Deck",
+      "expeditionArea": "Expedition Area",
+      "lostLoot": "Lost Loot",
+      "shipCargo": "Ship Cargo",
+      "actions": "Actions",
+      "expeditionEmpty": "No cards revealed yet",
+      "lostLootEmpty": "Empty",
+      "shipCargoEmpty": "No cards secured yet",
+      "noOpponentsYet": "No opponents yet",
+      "shipCargoTitle": "{name} — Ship Cargo",
+      "treasureDeckCountOne": "{count} card remaining",
+      "treasureDeckCountOther": "{count} cards remaining",
+      "lostLootCountOne": "{count} card",
+      "lostLootCountOther": "{count} cards",
+      "currentScorePreview": "Current score preview: {score}",
+      "scorePreview": "Score preview: {score}"
+    },
+    "players": {
+      "aiSuffix": "{name} (AI)"
+    },
+    "status": {
+      "turnLine": "Turn: {name} — Phase: {phase}",
+      "phaseOnly": "Phase: {phase}",
+      "phases": {
+        "GAME_INIT": "Starting Game",
+        "PLAYER_TURN_START": "Turn Starting",
+        "DRAW_CARD": "Drawing Card",
+        "REVEAL_CARD": "Revealing Card",
+        "CHECK_DUPLICATE": "Checking for Duplicate",
+        "SHIPWRECK": "Shipwreck!",
+        "RESOLVE_ABILITY": "Resolving Ability",
+        "PLAYER_CHOICE": "Awaiting Target Selection",
+        "PLAYER_DECISION": "Awaiting Decision",
+        "RETURN_TO_SHIP": "Returning to Ship",
+        "END_TURN": "Ending Turn",
+        "GAME_END": "Game Ending",
+        "SCORING": "Scoring"
+      }
+    },
+    "combat": {
+      "shieldActive": "Shield Active"
+    },
+    "results": {
+      "gameOverPlain": "Game Over",
+      "gameOverBanner": "Game Over — {label}: {names}",
+      "winnerSingular": "Winner",
+      "winnerPlural": "Winners"
+    },
+    "abilities": {
+      "cannon": {
+        "title": "Cannon",
+        "prompt": "Choose a rival's card to destroy."
+      },
+      "pirateDagger": {
+        "title": "Pirate Dagger",
+        "prompt": "Choose a rival's card to steal."
+      },
+      "luckyAnchor": {
+        "title": "Lucky Anchor",
+        "prompt": "Choose a card from your own Ship Cargo to replay."
+      },
+      "treasureMap": {
+        "title": "Treasure Map",
+        "prompt": "Choose a card from Lost Loot to retrieve."
+      },
+      "compass": {
+        "previewLabel": "Compass reveals the next card:"
+      }
+    },
+    "modal": {
+      "chooseTarget": "Choose a target."
+    },
+    "common": {
+      "treasureDeckEmpty": "The Treasure Deck is empty."
+    },
+    "cardTypes": {
+      "cannon": "Cannon",
+      "captainShield": "Captain Shield",
+      "compass": "Compass",
+      "goldCoin": "Gold Coin",
+      "goldenKey": "Golden Key",
+      "luckyAnchor": "Lucky Anchor",
+      "pirateDagger": "Pirate Dagger",
+      "seaSerpent": "Sea Serpent",
+      "treasureChest": "Treasure Chest",
+      "treasureMap": "Treasure Map"
+    },
+    "cards": {
+      "tooltip": "{type} ({value})"
     }
   },
   "fa": {
@@ -18,6 +115,103 @@
     "actions": {
       "exploreFurther": "کاوش بیشتر",
       "returnToShip": "بازگشت به کشتی"
+    },
+    "language": {
+      "switcherLabel": "زبان",
+      "buttonEn": "EN",
+      "buttonFa": "فا"
+    },
+    "zones": {
+      "opponents": "حریفان",
+      "treasureDeck": "دسته گنج",
+      "expeditionArea": "منطقه اکتشاف",
+      "lostLoot": "غنایم از دست رفته",
+      "shipCargo": "بار کشتی",
+      "actions": "اقدامات",
+      "expeditionEmpty": "هنوز کارتی آشکار نشده است",
+      "lostLootEmpty": "خالی",
+      "shipCargoEmpty": "هنوز کارتی ذخیره نشده است",
+      "noOpponentsYet": "هنوز حریفی وجود ندارد",
+      "shipCargoTitle": "بار کشتیِ {name}",
+      "treasureDeckCountOne": "{count} کارت باقی‌مانده",
+      "treasureDeckCountOther": "{count} کارت باقی‌مانده",
+      "lostLootCountOne": "{count} کارت",
+      "lostLootCountOther": "{count} کارت",
+      "currentScorePreview": "پیش‌نمایش امتیاز شما: {score}",
+      "scorePreview": "پیش‌نمایش امتیاز: {score}"
+    },
+    "players": {
+      "aiSuffix": "{name} (هوش مصنوعی)"
+    },
+    "status": {
+      "turnLine": "نوبت: {name} — فاز: {phase}",
+      "phaseOnly": "فاز: {phase}",
+      "phases": {
+        "GAME_INIT": "شروع بازی",
+        "PLAYER_TURN_START": "شروع نوبت",
+        "DRAW_CARD": "کشیدن کارت",
+        "REVEAL_CARD": "آشکارسازی کارت",
+        "CHECK_DUPLICATE": "بررسی تکراری بودن",
+        "SHIPWRECK": "غرق کشتی!",
+        "RESOLVE_ABILITY": "اجرای توانایی",
+        "PLAYER_CHOICE": "در انتظار انتخاب هدف",
+        "PLAYER_DECISION": "در انتظار تصمیم",
+        "RETURN_TO_SHIP": "بازگشت به کشتی",
+        "END_TURN": "پایان نوبت",
+        "GAME_END": "پایان بازی",
+        "SCORING": "محاسبه امتیاز"
+      }
+    },
+    "combat": {
+      "shieldActive": "سپر فعال است"
+    },
+    "results": {
+      "gameOverPlain": "بازی تمام شد",
+      "gameOverBanner": "بازی تمام شد — {label}: {names}",
+      "winnerSingular": "برنده",
+      "winnerPlural": "برندگان"
+    },
+    "abilities": {
+      "cannon": {
+        "title": "توپ",
+        "prompt": "کارت یکی از حریفان را برای نابودی انتخاب کنید."
+      },
+      "pirateDagger": {
+        "title": "خنجر دزد دریایی",
+        "prompt": "کارت یکی از حریفان را برای دزدیدن انتخاب کنید."
+      },
+      "luckyAnchor": {
+        "title": "لنگر شانس",
+        "prompt": "یک کارت از بار کشتی خودتان را برای بازی مجدد انتخاب کنید."
+      },
+      "treasureMap": {
+        "title": "نقشه گنج",
+        "prompt": "یک کارت از غنایم از دست رفته را برای بازیابی انتخاب کنید."
+      },
+      "compass": {
+        "previewLabel": "قطب‌نما کارت بعدی را نشان می‌دهد:"
+      }
+    },
+    "modal": {
+      "chooseTarget": "یک هدف انتخاب کنید."
+    },
+    "common": {
+      "treasureDeckEmpty": "دسته گنج خالی است."
+    },
+    "cardTypes": {
+      "cannon": "توپ",
+      "captainShield": "سپر کاپیتان",
+      "compass": "قطب‌نما",
+      "goldCoin": "سکه طلا",
+      "goldenKey": "کلید طلایی",
+      "luckyAnchor": "لنگر شانس",
+      "pirateDagger": "خنجر دزد دریایی",
+      "seaSerpent": "مار دریایی",
+      "treasureChest": "صندوق گنج",
+      "treasureMap": "نقشه گنج"
+    },
+    "cards": {
+      "tooltip": "{type} ({value})"
     }
   }
 }

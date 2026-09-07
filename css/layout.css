@@ -60,7 +60,7 @@
 }
 
 .zone__title {
-  margin: 0 0 var(--space-sm) 0;
+  margin-block-end: var(--space-sm);
   font-size: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -68,7 +68,7 @@
 }
 
 .zone__count {
-  margin: var(--space-xs) 0 0 0;
+  margin-block-start: var(--space-xs);
   font-size: 0.85rem;
   opacity: 0.8;
 }
@@ -108,7 +108,7 @@
 
 .opponent__name {
   font-weight: bold;
-  margin: 0 0 var(--space-xs) 0;
+  margin-block-end: var(--space-xs);
 }
 
 .status-line {
@@ -117,6 +117,9 @@
 }
 
 .action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-family: var(--font-base);
   font-size: 1rem;
   padding: var(--space-sm) var(--space-lg);
@@ -142,5 +145,5 @@
   color: var(--color-text);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--space-sm);
-  margin: 0 0 var(--space-sm) 0;
+  margin-block-end: var(--space-sm);
 }

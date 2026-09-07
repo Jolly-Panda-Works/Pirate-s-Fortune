@@ -33,20 +33,20 @@
 }
 
 .modal-panel__title {
-  margin: 0 0 var(--space-xs) 0;
+  margin-block-end: var(--space-xs);
   color: var(--color-gold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .modal-panel__prompt {
-  margin: 0 0 var(--space-md) 0;
+  margin-block-end: var(--space-md);
   font-size: 0.95rem;
 }
 
 .modal-group__title {
   font-weight: bold;
-  margin: var(--space-sm) 0 var(--space-xs) 0;
+  margin-block: var(--space-sm) var(--space-xs);
 }
 
 .modal-option {

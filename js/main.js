@@ -14,6 +14,14 @@
  * Phase 14 (Prompt 014 — Modal System): also wires up modalManager.js, so
  * targeted abilities (Cannon/Pirate Dagger/Lucky Anchor/Treasure Map) and
  * Compass's preview render into #modal-root and are fully playable too.
+ * Phase 15 (Prompt 016 — Localization): also loads data/localization.json
+ * and wires up localizationManager.js, BEFORE uiManager.init()/
+ * modalManager.init() so their very first render already has real
+ * strings rather than empty-locale fallbacks. uiManager.render/
+ * modalManager.render are then subscribed to
+ * localizationManager.onLocaleChange() — the same decoupled pattern each
+ * already uses for gameState.on('*', ...) — so a language switch
+ * re-renders both without a page reload.
  */
 
 import { createLogger } from './logger.js';
@@ -21,6 +29,7 @@ import * as gameManager from './gameManager.js';
 import * as iconManager from './iconManager.js';
 import * as uiManager from './uiManager.js';
 import * as modalManager from './modalManager.js';
+import * as localizationManager from './localizationManager.js';
 
 const log = createLogger('main');
 
@@ -45,16 +54,24 @@ async function bootstrap() {
     return;
   }
 
-  const [cardsFile, config, iconMap] = await Promise.all([
+  const [cardsFile, config, iconMap, localizationData] = await Promise.all([
     loadJSON('data/cards.json'),
     loadJSON('data/gameConfig.json'),
     loadJSON('data/iconMap.json'),
+    loadJSON('data/localization.json'),
   ]);
   const cardDefinitions = cardsFile.cards;
 
   iconManager.init(config, iconMap);
+  localizationManager.init(localizationData);
   uiManager.init(cardDefinitions);
   modalManager.init(cardDefinitions);
+
+  // A language switch never touches GameState, so it can't reuse
+  // gameState's own pub/sub — this is the one place both re-render loops
+  // are wired to something other than a GameState event.
+  localizationManager.onLocaleChange(() => uiManager.render());
+  localizationManager.onLocaleChange(() => modalManager.render());
 
   // A default 2-player game (1 human, 1 AI) starts automatically so the
   // board is playable the moment the page loads — no setup step needed.

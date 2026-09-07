@@ -34,3 +34,32 @@ body {
   color: var(--color-text);
   font-family: var(--font-base);
 }
+
+/* Language switcher (Phase 15 — Prompt 016, GDD §20). Fixed corner
+ * placement using logical inset properties so it stays in the correct
+ * reading-direction corner automatically under RTL, with zero direction
+ * branching needed here or in JS (GDD §29.4 — no superficial RTL layer). */
+.language-switcher {
+  position: fixed;
+  inset-block-start: var(--space-sm);
+  inset-inline-end: var(--space-sm);
+  z-index: 110;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.lang-button {
+  font-family: var(--font-base);
+  font-size: 0.85rem;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--space-xs);
+  border: 1px solid var(--color-gold);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.lang-button--active {
+  background: var(--color-gold);
+  color: var(--color-bg);
+}

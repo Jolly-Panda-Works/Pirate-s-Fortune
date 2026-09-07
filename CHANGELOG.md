@@ -7,6 +7,64 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.21.0] - Prompt 016: Localization
+
+### Added
+- `js/localizationManager.js` (previously an empty stub) implements EN/FA
+  localization and RTL direction handling (GDD §20):
+  - `t(key, params)` — dotted-key lookup with `{placeholder}`
+    interpolation; falls back to English (logged) if missing in the
+    active locale, and to `''` (logged as an error) if missing
+    everywhere — never renders a raw key.
+  - `loadLocale(langCode)` — pure lookup against the already-loaded
+    `data/localization.json` (one file holds both locales; nothing to
+    re-fetch on switch).
+  - `setLocale(langCode)` — updates `document.documentElement.lang`/
+    `.dir`, refreshes `[data-i18n]`/`[data-i18n-aria-label]` elements
+    and the switcher's active state, emits `locale-changed`.
+  - `formatNumber(value)` — `Intl.NumberFormat`, real Eastern
+    Arabic-Indic digits for Persian (GDD §20 number formatting).
+  - `mountSwitcher()` — wires the new EN/FA toggle in `index.html`.
+- `data/localization.json`: full EN/FA string trees, 64 symmetric keys
+  covering every zone/action/ability/status string used by the UI.
+- `tests/unit/localization.test.js` (7 tests): EN/FA key symmetry (both
+  directions), `dir` correctness, non-empty leaf values, and
+  `{placeholder}` token symmetry between locales.
+- Language switcher (`#language-switcher`, `.lang-button`) in
+  `index.html` + CSS (`css/main.css`), using logical inset properties.
+
+### Changed
+- `js/uiManager.js` / `js/modalManager.js`: every `// TODO(i18n)` from
+  Prompt 012/013/014 resolved — all hard-coded English strings and card
+  type names now route through `localizationManager.t()`/
+  `formatNumber()`. `modalManager.js`'s old English-only `ABILITY_COPY`
+  table is replaced by `getAbilityCopy()`, reading the same data from
+  `data/localization.json`.
+- `js/main.js`: loads `data/localization.json` at bootstrap and
+  initializes `localizationManager` before `uiManager`/`modalManager`;
+  both managers' `render()` subscribed to
+  `localizationManager.onLocaleChange()`.
+- `css/layout.css`, `css/cards.css`, `css/modal.css`: physical
+  `margin-top`/4-value `margin: 0 0 Xpx 0` shorthands converted to
+  logical properties (`margin-block-start`/`margin-block-end`/
+  `margin-block`) — nothing was actually LTR-broken (all values were
+  already left/right-symmetric), but this makes `layout.css`'s own
+  "uses logical properties" header claim true in practice (GDD §29.4).
+- `index.html`: every zone's `aria-label` now also carries a matching
+  `data-i18n-aria-label` so screen-reader text is localized too.
+
+### Verified
+- A hand-rolled DOM shim (no jsdom dependency, matching Prompt
+  012–015's own precedent) drove a full 4-player game through a real
+  mid-game language switch: confirmed `lang`/`dir` flip, every zone
+  re-renders in Persian, Persian digit formatting, a targeted-ability
+  modal shows correctly translated title/prompt text, the game reaches
+  `SCORING` with a correctly-localized results banner, and switching
+  back to English re-renders it in English too. The only leftover
+  Latin-script text anywhere was AI player names themselves (user/config
+  data, correctly left untranslated).
+- Full engine test suite: 162/162.
+
 ## [0.20.0] - Prompt 015: AI
 
 ### Added

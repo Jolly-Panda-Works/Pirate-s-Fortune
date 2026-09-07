@@ -52,6 +52,17 @@
  *    mutation flows through inputManager.dispatchAction() ->
  *    gameManager.chooseAbilityTarget(), exactly as GDD §19 describes.
  *  - No `alert`/`confirm`/`prompt` anywhere (rule 11).
+ *
+ * Prompt 016 scope (GDD §20 — Localization): every string this module
+ * renders (ability titles/prompts, card tooltips, the Compass preview
+ * label, the "Treasure Deck is empty" note) now goes through
+ * localizationManager.t()/formatNumber() instead of the old
+ * Stage-B-only English ABILITY_COPY table — getAbilityCopy() (below)
+ * replaces it, reading straight from data/localization.json's
+ * `abilities.<key>` block. Re-rendered on a locale switch the same way
+ * GameState changes already are: main.js also subscribes this module's
+ * render() to localizationManager.onLocaleChange(), parallel to its
+ * existing gameState.on('*', render) subscription.
  */
 
 import { createLogger } from './logger.js';
@@ -59,6 +70,7 @@ import * as gameState from './gameState.js';
 import * as cardManager from './cardManager.js';
 import * as iconManager from './iconManager.js';
 import * as inputManager from './inputManager.js';
+import * as localizationManager from './localizationManager.js';
 
 const log = createLogger('modalManager');
 
@@ -70,28 +82,22 @@ let cardDefinitions = null;
 let modalRoot = null;
 let mounted = false;
 
-// English-only ability copy for Stage B (Prompt 016/Stage C replaces
-// these with data/localization.json keys) — kept as one small lookup
-// table rather than inline per-branch strings so it's obvious at a
-// glance every targeted ability has copy, and easy to find/replace later.
-const ABILITY_COPY = {
-  cannon: {
-    title: 'Cannon', // TODO(i18n)
-    prompt: "Choose a rival's card to destroy.", // TODO(i18n)
-  },
-  pirateDagger: {
-    title: 'Pirate Dagger', // TODO(i18n)
-    prompt: "Choose a rival's card to steal.", // TODO(i18n)
-  },
-  luckyAnchor: {
-    title: 'Lucky Anchor', // TODO(i18n)
-    prompt: 'Choose a card from your own Ship Cargo to replay.', // TODO(i18n)
-  },
-  treasureMap: {
-    title: 'Treasure Map', // TODO(i18n)
-    prompt: 'Choose a card from Lost Loot to retrieve.', // TODO(i18n)
-  },
-};
+/**
+ * Looks up a targeted ability's modal copy (title + prompt) from
+ * data/localization.json's `abilities.<key>` block (GDD §20) — falls
+ * back to the raw ability key / a generic prompt for anything not in
+ * that block (defensive only; every real targeted ability has copy).
+ * @param {string} abilityKey
+ * @returns {{title: string, prompt: string}}
+ */
+function getAbilityCopy(abilityKey) {
+  const title = localizationManager.t(`abilities.${abilityKey}.title`);
+  const prompt = localizationManager.t(`abilities.${abilityKey}.prompt`);
+  return {
+    title: title || abilityKey,
+    prompt: prompt || localizationManager.t('modal.chooseTarget'),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Small rendering helpers (mirrors uiManager.js's own — see its header for
@@ -136,11 +142,14 @@ function createOptionButton(option) {
 
     const valueEl = document.createElement('span');
     valueEl.className = 'card__value';
-    valueEl.textContent = String(definition.value);
+    valueEl.textContent = localizationManager.formatNumber(definition.value);
     button.appendChild(valueEl);
 
-    // TODO(i18n): card type name should come from data/localization.json.
-    button.title = `${definition.type} (${definition.value})`;
+    // Localized card type name (GDD §20).
+    button.title = localizationManager.t('cards.tooltip', {
+      type: localizationManager.t(`cardTypes.${definition.type}`),
+      value: localizationManager.formatNumber(definition.value),
+    });
   } else {
     log.warn('createOptionButton: unknown defId — rendering fallback icon', option.defId);
     button.appendChild(renderIconNode(iconManager.resolveIcon('_fallback')));
@@ -188,7 +197,11 @@ function renderOptionList(options) {
     const player = gameState.getPlayer(targetPlayerId);
     const groupTitle = document.createElement('p');
     groupTitle.className = 'modal-group__title';
-    groupTitle.textContent = player ? player.name : targetPlayerId; // TODO(i18n)
+    groupTitle.textContent = player
+      ? player.isAI
+        ? localizationManager.t('players.aiSuffix', { name: player.name })
+        : player.name
+      : targetPlayerId;
     container.appendChild(groupTitle);
 
     const row = document.createElement('div');
@@ -214,7 +227,7 @@ function renderChoiceModal(pending) {
   const panel = document.createElement('div');
   panel.className = 'modal-panel';
 
-  const copy = ABILITY_COPY[pending.ability] ?? { title: pending.ability, prompt: 'Choose a target.' };
+  const copy = getAbilityCopy(pending.ability);
 
   const title = document.createElement('h2');
   title.className = 'modal-panel__title';
@@ -252,7 +265,7 @@ function renderCompassPreview() {
 
   const label = document.createElement('p');
   label.className = 'modal-preview__label';
-  label.textContent = 'Compass reveals the next card:'; // TODO(i18n)
+  label.textContent = localizationManager.t('abilities.compass.previewLabel');
   panel.appendChild(label);
 
   if (context.peekedDefId) {
@@ -264,14 +277,14 @@ function renderCompassPreview() {
       card.appendChild(renderIconNode(iconManager.resolveIcon(iconKey)));
       const valueEl = document.createElement('span');
       valueEl.className = 'card__value';
-      valueEl.textContent = String(definition.value);
+      valueEl.textContent = localizationManager.formatNumber(definition.value);
       card.appendChild(valueEl);
     }
     panel.appendChild(card);
   } else {
     const empty = document.createElement('p');
     empty.className = 'zone__empty';
-    empty.textContent = 'The Treasure Deck is empty.'; // TODO(i18n)
+    empty.textContent = localizationManager.t('common.treasureDeckEmpty');
     panel.appendChild(empty);
   }
 

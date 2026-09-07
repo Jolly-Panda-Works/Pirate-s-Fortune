@@ -15,6 +15,15 @@
 </head>
 <body>
 
+  <!-- Language switcher (Phase 15 — Prompt 016): simple EN/FA toggle,
+       wired up by localizationManager.js's mountSwitcher(). Lives outside
+       #app-root since it's not one of GDD §19's board zones and must stay
+       reachable even before the board itself mounts. -->
+  <div id="language-switcher" class="language-switcher" data-i18n-aria-label="language.switcherLabel">
+    <button type="button" class="lang-button" data-lang="en" data-i18n="language.buttonEn">EN</button>
+    <button type="button" class="lang-button" data-lang="fa" data-i18n="language.buttonFa">FA</button>
+  </div>
+
   <!-- Orientation gate: populated in Phase 16 -->
   <div id="orientation-gate" class="orientation-gate" hidden>
     <p data-i18n="orientation.rotateDevice">Please rotate your device to landscape.</p>
@@ -26,17 +35,17 @@
        is deliberately NOT a child here — it lives in the separate
        #modal-root node below, owned by modalManager.js (Prompt 014). -->
   <main id="app-root" class="app-root">
-    <section id="zone-opponents" class="zone zone-opponents" aria-label="Opponents"></section>
+    <section id="zone-opponents" class="zone zone-opponents" aria-label="Opponents" data-i18n-aria-label="zones.opponents"></section>
 
-    <section id="zone-treasure-deck" class="zone zone-treasure-deck" aria-label="Treasure Deck"></section>
+    <section id="zone-treasure-deck" class="zone zone-treasure-deck" aria-label="Treasure Deck" data-i18n-aria-label="zones.treasureDeck"></section>
 
-    <section id="zone-expedition-area" class="zone zone-expedition-area" aria-label="Expedition Area"></section>
+    <section id="zone-expedition-area" class="zone zone-expedition-area" aria-label="Expedition Area" data-i18n-aria-label="zones.expeditionArea"></section>
 
-    <section id="zone-lost-loot" class="zone zone-lost-loot" aria-label="Lost Loot"></section>
+    <section id="zone-lost-loot" class="zone zone-lost-loot" aria-label="Lost Loot" data-i18n-aria-label="zones.lostLoot"></section>
 
-    <section id="zone-actions" class="zone zone-actions" aria-label="Actions"></section>
+    <section id="zone-actions" class="zone zone-actions" aria-label="Actions" data-i18n-aria-label="zones.actions"></section>
 
-    <section id="zone-ship-cargo" class="zone zone-ship-cargo" aria-label="Ship Cargo"></section>
+    <section id="zone-ship-cargo" class="zone zone-ship-cargo" aria-label="Ship Cargo" data-i18n-aria-label="zones.shipCargo"></section>
   </main>
 
   <!-- Modal root: modalManager.js owns everything inside this node -->
