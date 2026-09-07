@@ -7,6 +7,53 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.22.0] - Prompt 017: Responsive / Landscape UI — Stage C complete
+
+### Added
+- `css/responsive.css` (previously an empty stub): all four GDD §21
+  breakpoint tiers (XL >=1366px, MD 1024-1365px, SM 844-1023px, XS
+  ~<=932x430) via genuine layout reflow — grid area reassignment
+  (Treasure Deck + Lost Loot collapse into one narrow shared column at
+  SM/XS, freeing width for the Expedition Area), spacing reduction
+  (root `--space-*` tokens redefined per tier), collapsed rival areas
+  (opponent score-preview/name hidden at SM/XS), condensed action bar —
+  never `transform: scale(...)` of the whole board. Narrower tiers
+  cascade as descending `max-width` overrides (MD -> SM -> XS, in that
+  file order); XS is the only tier also gated on `max-height` (a
+  landscape phone is wide but short, unlike a merely-narrow desktop
+  window).
+- `js/uiManager.js`: new `initOrientationGate()` (GDD §21 / rule 15),
+  wired against `window.matchMedia('(orientation: portrait)')`.
+  Blocking is two layers together (`aria-hidden` + a new
+  `pointer-events: none` CSS class), not either/or — neither alone
+  actually stops both a screen reader AND a click.
+- `.app-root--blocked`/`.modal-root--blocked`/`.orientation-gate` CSS in
+  `css/responsive.css`.
+
+### Changed
+- `js/main.js`: calls `uiManager.initOrientationGate()` once during
+  bootstrap, independent of every other bootstrap step.
+- `css/layout.css`: scoped `overflow-y: auto` added to
+  `.zone-expedition-area` (inside `responsive.css`'s SM block) — the
+  base `.zone { overflow: hidden; }` would otherwise clip wrapped
+  Expedition Area cards once that zone spans 2 grid rows at SM/XS.
+
+### Verified
+- No new unit tests (pure CSS/DOM-orientation-toggling, outside `npm
+  test`'s scope like Prompt 012-014's own UI code). Two one-off
+  verification scripts instead: a `matchMedia`-mocking script exercising
+  `initOrientationGate()`'s full state machine (landscape at init,
+  rotate to portrait blocks+shows gate, rotate back unblocks+hides,
+  page-loads-already-portrait case), and a regression run of the full
+  4-player click-driven game with the gate now wired into bootstrap,
+  confirming no interference with normal play.
+- Full engine test suite: 162/162 (unchanged — no new game-logic
+  module).
+- **Stage C (Bilingual) complete**: a full game is playable in English
+  and Persian (RTL), at all four breakpoint tiers, with the orientation
+  gate correctly blocking portrait / unblocking landscape in both
+  languages.
+
 ## [0.21.0] - Prompt 016: Localization
 
 ### Added

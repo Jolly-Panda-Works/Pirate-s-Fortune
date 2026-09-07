@@ -1,8 +1,285 @@
 /* responsive.css
- * Breakpoint tiers per GDD §21:
- *   XL  >= 1366px   desktop
- *   MD  1024-1365px tablet landscape
- *   SM  844-1023px  compact landscape
- *   XS  <= 932x430  phone landscape
- * Populated in Phase 16. Layout reflow, not transform-scaling.
+ *
+ * Breakpoint tiers per GDD §21 (landscape-first):
+ *   XL  >= 1366px            desktop — full board, generous spacing
+ *   MD  1024-1365px          tablet landscape
+ *   SM  844-1023px           compact landscape
+ *   XS  ~<= 932x430          phone landscape
+ * Implemented: Phase 16 (Responsive/Landscape UI) — Prompt 017.
+ *
+ * layout.css's unconditional (no-media-query) rules ARE the XL tier —
+ * "full board with generous spacing" is exactly what Prompt 012 already
+ * built, so there's nothing to override at XL. Every block below is a
+ * DESCENDING max-width override cascade: MD narrows first, SM narrows
+ * further (and re-declares anything MD set that SM wants different), XS
+ * narrows furthest still. This only works correctly because the blocks
+ * are declared in this exact order (MD, then SM, then XS) — later rules
+ * of equal specificity win the cascade, so re-ordering these blocks
+ * would silently break which tier's values apply at a given width. No
+ * min-width pairing is used or needed; each block simply re-declares
+ * whatever properties it wants to differ from the wider tier above it.
+ *
+ * Every override below targets the SAME class names uiManager.js/
+ * modalManager.js already emit unconditionally (Prompt 012-016) — no
+ * markup or rendering logic changes for this prompt, only how much
+ * space/what size those existing elements get at a given viewport. This
+ * is deliberate: GDD §21 calls for layout REFLOW (grid area
+ * reassignment, spacing reduction, collapsing rival areas, condensing
+ * action bars, simplifying cargo presentation), never a `transform:
+ * scale(...)` of the whole board, which would just shrink text/hit
+ * targets uniformly instead of actually re-laying anything out.
+ *
+ * Root spacing tokens (--space-*, css/main.css) are redefined smaller at
+ * each narrower tier so every existing `padding: var(--space-md)` /
+ * `gap: var(--space-sm)` etc. across every stylesheet shrinks together
+ * automatically — one redeclaration here reaches every consumer, rather
+ * than hunting down and overriding each individual rule that uses a
+ * spacing token.
  */
+
+/* ---------------------------------------------------------------------
+ * MD — Tablet landscape (1024-1365px): still the full 3-column shape,
+ * just a little tighter than XL's "generous" spacing/card size.
+ * --------------------------------------------------------------------- */
+@media (max-width: 1365px) {
+  :root {
+    --space-md: 12px;
+    --space-lg: 18px;
+  }
+
+  .app-root {
+    grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr) minmax(140px, 1fr);
+  }
+
+  .card {
+    width: 50px;
+    height: 70px;
+    font-size: 1.25rem;
+  }
+
+  .card__icon--image {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * SM — Compact landscape (844-1023px): "collapsing rival-player areas"
+ * + "reassigning CSS grid areas" + "condensing action bars" +
+ * "simplifying cargo presentation" (GDD §21's own suggestion list),
+ * all four actually used here, not just spacing reduction.
+ * --------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  :root {
+    --space-sm: 6px;
+    --space-md: 10px;
+    --space-lg: 14px;
+  }
+
+  /* Grid area reassignment: the Treasure Deck and Lost Loot piles don't
+   * need much width (they're a single stacked card + a short count
+   * line), so they're collapsed into one narrow shared column, stacked
+   * vertically, freeing horizontal width for the Expedition Area — the
+   * zone a push-your-luck game actually needs the most room for, since
+   * (Prompt 015) an AI's chained Dagger/Anchor/Map targets can grow it
+   * well past a simple 1-card-per-draw count. */
+  .app-root {
+    grid-template-columns: 110px 1fr;
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-areas:
+      'opponents  opponents'
+      'deck       expedition'
+      'lostloot   expedition'
+      'actions    actions'
+      'cargo      cargo';
+  }
+
+  .zone-treasure-deck,
+  .zone-lost-loot {
+    grid-column: 1;
+  }
+
+  .zone-expedition-area {
+    grid-row: 2 / span 2;
+    /* This zone can now legitimately hold more wrapped-card rows than
+     * its own box is tall (Prompt 015: an AI's chained Dagger/Anchor/Map
+     * targets can grow the Expedition Area well past a simple 1-card-
+     * per-draw count) — layout.css's base `.zone { overflow: hidden; }`
+     * would otherwise silently clip cards out of view here. Scroll
+     * instead of clip, scoped to this zone only. */
+    overflow-y: auto;
+  }
+
+  .zone {
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .zone__title {
+    font-size: 0.85rem;
+  }
+
+  .card {
+    width: 42px;
+    height: 58px;
+    font-size: 1.05rem;
+  }
+
+  .card__icon--image {
+    width: 22px;
+    height: 22px;
+  }
+
+  .card__value {
+    font-size: 0.7rem;
+  }
+
+  /* Collapsing rival-player areas: each opponent card drops its own
+   * score-preview line (the CURRENT player's own score preview in the
+   * Ship Cargo zone stays — that number is the one actively useful
+   * during a decision; a rival's tentative score is nice-to-have only). */
+  .opponent .zone__count {
+    display: none;
+  }
+
+  .opponent {
+    min-width: 100px;
+    padding: var(--space-xs);
+  }
+
+  /* Condensing action bars: smaller hit targets, tighter gap. */
+  .action-button {
+    padding: var(--space-xs) var(--space-md);
+    font-size: 0.9rem;
+  }
+
+  .status-line {
+    font-size: 0.8rem;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * XS — Phone landscape (~<=932x430): the tightest tier on BOTH axes at
+ * once (a landscape phone is wide but genuinely short), so this is the
+ * only tier gated on max-height as well as max-width — a narrow-but-tall
+ * window should still get SM's treatment, not XS's most aggressive cuts.
+ * --------------------------------------------------------------------- */
+@media (max-width: 932px) and (max-height: 430px) {
+  :root {
+    --space-xs: 2px;
+    --space-sm: 4px;
+    --space-md: 6px;
+    --space-lg: 8px;
+  }
+
+  .app-root {
+    grid-template-columns: 84px 1fr;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+  }
+
+  .zone {
+    padding: var(--space-xs);
+  }
+
+  .zone__title {
+    font-size: 0.7rem;
+    margin-block-end: 2px;
+  }
+
+  .zone__count {
+    font-size: 0.7rem;
+  }
+
+  .zone__empty {
+    font-size: 0.7rem;
+  }
+
+  .card {
+    width: 34px;
+    height: 46px;
+    font-size: 0.85rem;
+    border-radius: 3px;
+  }
+
+  .card__icon--image {
+    width: 16px;
+    height: 16px;
+  }
+
+  .card__value {
+    font-size: 0.6rem;
+  }
+
+  /* Simplifying cargo presentation further: no per-opponent name label
+   * competing for the same handful of vertical pixels the cards
+   * themselves need — the opponent's cargo cards are still fully
+   * visible, just without the redundant text above them. */
+  .opponent__name {
+    display: none;
+  }
+
+  .opponent {
+    min-width: 64px;
+    padding: 2px;
+  }
+
+  .opponent-list {
+    gap: var(--space-xs);
+  }
+
+  /* Condensing action bars further still. */
+  .action-button {
+    padding: 2px var(--space-sm);
+    font-size: 0.75rem;
+    gap: 2px;
+  }
+
+  .status-line {
+    font-size: 0.7rem;
+  }
+
+  .language-switcher {
+    inset-block-start: 2px;
+    inset-inline-end: 2px;
+  }
+
+  .lang-button {
+    font-size: 0.7rem;
+    padding: 2px var(--space-xs);
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * Orientation gate (GDD §21 / rule 15). Unconditional — NOT nested in
+ * any width media query above, since portrait can happen at any width
+ * tier (a portrait TABLET is still a portrait tablet). Shown/hidden by
+ * uiManager.js's initOrientationGate() toggling the `hidden` attribute;
+ * this file owns only what it looks like and what it blocks once shown.
+ * --------------------------------------------------------------------- */
+.orientation-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-lg);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 1.1rem;
+}
+
+.orientation-gate[hidden] {
+  display: none;
+}
+
+/* Both layers together, not either/or (see uiManager.js's own comment
+ * on updateOrientationGate()): pointer-events:none actually stops a
+ * click/tap from reaching the board underneath the gate; aria-hidden
+ * (set alongside this class, in JS) is what stops assistive tech from
+ * still announcing it. Neither alone is a real block. */
+.app-root--blocked,
+.modal-root--blocked {
+  pointer-events: none;
+}

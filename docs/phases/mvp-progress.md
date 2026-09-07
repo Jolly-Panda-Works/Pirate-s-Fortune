@@ -22,13 +22,93 @@
 | 014 — Modal System | 14 | ✅ Done — `js/modalManager.js` + `css/modal.css`; new `PLAYER_CHOICE` phase in `turnManager.js`/`gameState.js` for real Cannon/Dagger/Anchor/Map target selection; click+modal DOM-shim playthrough across 14 seeds reaches SCORING cleanly | 0.19.0 |
 | 015 — AI | 19 | ✅ Done — `js/playerManager.js` implemented (MVP threshold decision + deterministic first-eligible-option ability targeting, GDD §15/§17); `turnManager.js`'s PLAYER_DECISION and RESOLVE_ABILITY now call into it for every AI player (`tests/unit/player-manager.test.js` 14/14, `tests/integration/ai-ability-targeting.test.js` 7/7, full suite 155/155) | 0.20.0 |
 | 016 — Localization | 15 | ✅ Done — `js/localizationManager.js` implemented (EN/FA + RTL, GDD §20); `data/localization.json` full symmetric string tree (64 keys); every `uiManager.js`/`modalManager.js` string routed through `t()`/`formatNumber()`; language switcher wired in `index.html`; CSS logical properties confirmed (`tests/unit/localization.test.js` 7/7, full suite 162/162) | 0.21.0 |
-| 017 — Responsive / Landscape UI | 16 | ⏳ Not started | — |
+| 017 — Responsive / Landscape UI | 16 | ✅ Done — Stage C complete: `css/responsive.css` implements all 4 GDD §21 breakpoint tiers (XL/MD/SM/XS) via layout reflow (grid area reassignment, spacing reduction, collapsed rival areas, condensed action bar) — no transform-scaling; `uiManager.js`'s new `initOrientationGate()` wires the portrait-blocking gate (`matchMedia`, dual aria-hidden + pointer-events block); full suite still 162/162 (pure CSS/presentation prompt, no new unit-testable logic) | 0.22.0 |
 | 018 — Animations | 17 | ⏳ Not started | — |
 | 019 — Audio | 18 | ⏳ Not started | — |
 | 020 — Save System | 20 | ⏳ Not started | — |
 | 021 — Polish | 21 | ⏳ Not started | — |
 | 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 017 — Responsive / Landscape UI (Stage C complete)
+
+- `css/responsive.css` (previously an empty stub) implements all four
+  GDD §21 breakpoint tiers via genuine layout reflow, never
+  `transform: scale(...)` of the whole board:
+  - **XL (>=1366px)**: unchanged — `layout.css`'s unconditional
+    (no-media-query) rules already ARE "full board, generous spacing".
+  - **MD (1024-1365px)**: tighter root spacing tokens + slightly smaller
+    cards; same 3-column grid shape as XL.
+  - **SM (844-1023px)**: genuine grid area reassignment — the Treasure
+    Deck and Lost Loot zones collapse into one narrow shared column
+    (stacked vertically), freeing horizontal width for the Expedition
+    Area (which — Prompt 015 — can now legitimately grow past a simple
+    1-card-per-draw count via an AI's chained Dagger/Anchor/Map
+    targets); opponents' own score-preview lines are hidden (the
+    current player's own score preview, in Ship Cargo, stays); action
+    buttons get smaller padding/font.
+  - **XS (~<=932x430)**: the only tier gated on BOTH `max-width` AND
+    `max-height` at once (a landscape phone is wide but genuinely
+    short, unlike a merely-narrow desktop window, which should still
+    get SM's treatment); most aggressive spacing/card-size reduction,
+    opponent name labels hidden entirely.
+  - All three narrower tiers are a DESCENDING `max-width` override
+    cascade (MD, then SM, then XS, in that file order — later blocks of
+    equal specificity win) rather than paired `min`/`max` ranges; each
+    block only re-declares what it wants to differ from the wider tier
+    above it. Documented prominently at the top of the file since
+    reordering the blocks would silently break which tier's values win.
+  - Fixed one latent bug this reflow surfaced: `layout.css`'s base
+    `.zone { overflow: hidden; }` would have silently CLIPPED wrapped
+    Expedition Area cards once that zone started spanning 2 grid rows
+    at SM/XS. Scoped `overflow-y: auto` to `.zone-expedition-area`
+    alone (SM's block; XS's viewport always also satisfies SM's
+    `max-width` condition, so it inherits this too) rather than
+    touching `layout.css`'s shared base rule.
+  - Every override targets the SAME class names `uiManager.js`/
+    `modalManager.js` already emit unconditionally since Prompt
+    012-016 — no markup or rendering-logic changes were needed for any
+    tier, confirming the "Files: css/responsive.css,
+    js/uiManager.js (orientation gate wiring)" split in the prompt
+    itself: reflow is 100% CSS.
+- `js/uiManager.js`: new `initOrientationGate()` (GDD §21 / rule 15 —
+  "Landscape is the intended gameplay orientation"), deliberately kept
+  isolated at the very bottom of the file, well separated from
+  `render()`/`init()` above it — it has zero GameState dependency, runs
+  once at bootstrap plus again on every portrait<->landscape change via
+  `window.matchMedia('(orientation: portrait)')`'s own `change` event.
+  Blocking the board while the gate is shown is TWO layers together,
+  not either/or, despite the prompt's own "aria-hidden the board OR
+  disable pointer-events" wording: `aria-hidden` alone never stops a
+  click/tap from still reaching a button underneath, and
+  `pointer-events: none` (via new `.app-root--blocked`/
+  `.modal-root--blocked` classes, `css/responsive.css`) alone never
+  stops a screen reader from still announcing the blocked board — only
+  both together genuinely block interaction.
+- `js/main.js`: calls the new `uiManager.initOrientationGate()` once
+  during bootstrap, independent of every other bootstrap step (it has
+  no dependency on `cardDefinitions`/`config`/localization/GameState at
+  all — it would work identically even if every other bootstrap line
+  failed).
+- No new unit tests: this prompt is pure CSS/DOM-orientation-toggling,
+  outside `npm test`'s scope exactly like Prompt 012-014's own UI code
+  (see their notes above) — real coverage came from two one-off
+  verification scripts instead: (1) a `matchMedia`-mocking script
+  exercising `initOrientationGate()`'s full state machine (starts
+  hidden in landscape, shows + blocks on rotation to portrait, hides +
+  unblocks on rotation back, and — the page-loads-already-rotated case
+  — shows immediately if portrait is already `matches: true` at
+  `init()` time), and (2) a regression run of the full 4-player
+  click-driven game (Prompt 012-016's own DOM-shim technique) with
+  `initOrientationGate()` now wired into bootstrap, confirming it
+  doesn't interfere with normal play and the game still reaches
+  `SCORING` correctly.
+- Full engine test suite: 162/162 (unchanged from Prompt 016 — expected,
+  since this prompt adds no new game-logic module).
+- **Stage C (Bilingual) is now complete**: a full game is playable in
+  both English and Persian (RTL), at all four breakpoint tiers, with the
+  orientation gate correctly blocking portrait and unblocking landscape
+  in both languages.
 
 ## Notes on Prompt 016 — Localization
 

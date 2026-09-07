@@ -47,6 +47,17 @@
  * itself has zero knowledge of *when* it gets called, only *what* to draw
  * each time.
  *
+ * Prompt 017 scope (GDD §21 / rule 15 — Responsive/Landscape): the
+ * orientation gate (initOrientationGate(), all the way at the bottom of
+ * this file) is intentionally kept SEPARATE from render()/init() above —
+ * it has no GameState dependency at all, runs once at bootstrap plus
+ * again on every portrait<->landscape change, and never touches a zone
+ * container. All the actual breakpoint reflow (GDD §21's four tiers) is
+ * pure CSS (css/responsive.css) against the exact same class names this
+ * file already emits — nothing about HOW this module renders a zone
+ * changes for Prompt 017, only how css/responsive.css displays what's
+ * already there at a given viewport size.
+ *
  * Rules this module must respect (GDD §30):
  *  - Engine-independent is N/A here (this IS the presentation layer) —
  *    but the reverse must hold: gameState.js/turnManager.js/etc. must
@@ -484,6 +495,72 @@ function init(cardDefinitionsParam) {
   log.info('uiManager mounted');
 }
 
-export { init, render };
+export { init, render, initOrientationGate };
 
-export default { init, render };
+export default { init, render, initOrientationGate };
+
+// ---------------------------------------------------------------------------
+// Orientation gate (Phase 16 — Prompt 017, GDD §21 / rule 15: "Landscape
+// is the intended gameplay orientation"). Deliberately isolated down here,
+// well below render()/init() and everything GameState-driven above it —
+// this has NOTHING to do with GameState (no gameState import needed for
+// any of it) and must never be confused with a GameState-triggered
+// re-render. It only ever runs once, at bootstrap, and again on every
+// portrait<->landscape change afterward.
+// ---------------------------------------------------------------------------
+
+let orientationGateEl = null;
+let orientationAppRootEl = null;
+let orientationModalRootEl = null;
+
+/**
+ * Shows/hides #orientation-gate and blocks/unblocks the board underneath.
+ * Blocking is TWO layers, not one, per the prompt's own "aria-hidden the
+ * board or disable pointer-events" — both together, not either/or:
+ * `aria-hidden` alone never stops a mouse/touch click from still reaching
+ * a button underneath, and `pointer-events: none` alone (css/responsive.css's
+ * `.app-root--blocked`/`.modal-root--blocked`) never stops a screen reader
+ * from still announcing it. Genuinely blocking interaction needs both.
+ * @param {boolean} isPortrait
+ */
+function updateOrientationGate(isPortrait) {
+  if (!orientationGateEl) return;
+
+  orientationGateEl.hidden = !isPortrait;
+
+  if (orientationAppRootEl) {
+    orientationAppRootEl.setAttribute('aria-hidden', String(isPortrait));
+    orientationAppRootEl.classList.toggle('app-root--blocked', isPortrait);
+  }
+  if (orientationModalRootEl) {
+    orientationModalRootEl.setAttribute('aria-hidden', String(isPortrait));
+    orientationModalRootEl.classList.toggle('modal-root--blocked', isPortrait);
+  }
+}
+
+/**
+ * Wires up #orientation-gate (already present in index.html — Prompt 016)
+ * against the standard `matchMedia('(orientation: portrait)')` signal,
+ * which fires on an actual device rotation exactly the same way it fires
+ * on a plain browser-window resize past the width/height crossover — GDD
+ * §21 doesn't distinguish the two, and neither does this function. Call
+ * once at bootstrap (main.js); this is a permanent subscription for the
+ * lifetime of the page, unlike gameState.on('*', render) there's no
+ * corresponding "unmount" step anywhere else in this codebase either.
+ */
+function initOrientationGate() {
+  orientationGateEl = document.getElementById('orientation-gate');
+  orientationAppRootEl = document.getElementById('app-root');
+  orientationModalRootEl = document.getElementById('modal-root');
+
+  if (!orientationGateEl) {
+    log.warn('initOrientationGate: #orientation-gate is missing from index.html — gate disabled');
+    return;
+  }
+
+  const query = window.matchMedia('(orientation: portrait)');
+  updateOrientationGate(query.matches);
+  query.addEventListener('change', (event) => updateOrientationGate(event.matches));
+
+  log.info('Orientation gate wired up', { startedPortrait: query.matches });
+}

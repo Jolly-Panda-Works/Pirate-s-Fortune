@@ -22,6 +22,12 @@
  * localizationManager.onLocaleChange() — the same decoupled pattern each
  * already uses for gameState.on('*', ...) — so a language switch
  * re-renders both without a page reload.
+ * Phase 16 (Prompt 017 — Responsive/Landscape UI): also calls
+ * uiManager.initOrientationGate() once, wiring up the portrait-blocking
+ * gate (GDD §21/rule 15) against index.html's #orientation-gate. This
+ * has no dependency on cardDefinitions/config/localization/GameState at
+ * all, so it's wired independently of the rest of bootstrap() below —
+ * it would work identically even if every other line here failed.
  */
 
 import { createLogger } from './logger.js';
@@ -66,6 +72,7 @@ async function bootstrap() {
   localizationManager.init(localizationData);
   uiManager.init(cardDefinitions);
   modalManager.init(cardDefinitions);
+  uiManager.initOrientationGate();
 
   // A language switch never touches GameState, so it can't reuse
   // gameState's own pub/sub — this is the one place both re-render loops
