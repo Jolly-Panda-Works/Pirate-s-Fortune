@@ -168,6 +168,7 @@ import * as abilityResolver from './abilityResolver.js';
 import * as abilityManager from './abilityManager.js';
 import * as playerManager from './playerManager.js';
 import * as animationManager from './animationManager.js';
+import * as audioManager from './audioManager.js';
 import './abilities/index.js';
 
 const log = createLogger('turnManager');
@@ -494,6 +495,14 @@ function finishResolveAbility(expeditionCard, definition, targetContext) {
       involvedCards.push({ instanceId: targetContext.targetCardId });
     }
     animationManager.playAbilityTrigger(definition.ability, involvedCards);
+    // Prompt 019 (see audioManager.js's own header for why this can't be
+    // a pure gameState subscription like reveal/Shipwreck/Return to
+    // Ship/game completion are): same call site as the animationManager
+    // trigger just above, fire-and-forget, dispatched by ability key
+    // only (rule 4) — audioManager.playAbility() itself decides "ability
+    // trigger" vs "special ability" via gameConfig.json's
+    // abilities.singleResolution/chain split.
+    audioManager.playAbility(definition.ability);
   }
 
   if (result.shipwreckedCard) {

@@ -247,6 +247,16 @@
     font-size: 0.7rem;
     padding: 2px var(--space-xs);
   }
+
+  .audio-controls {
+    inset-block-start: 2px;
+    inset-inline-start: 2px;
+  }
+
+  .mute-button {
+    font-size: 0.7rem;
+    padding: 2px var(--space-xs);
+  }
 }
 
 /* ---------------------------------------------------------------------

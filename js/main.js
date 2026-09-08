@@ -39,6 +39,12 @@
  * their own unconditional first render() already happened) but before
  * gameManager.startGame() (so every GameState event startGame() itself
  * fires is already routed through the gate from the very first turn).
+ * Phase 18 (Prompt 019 — Audio): also loads data/audioMap.json and wires
+ * up audioManager.js, which owns its own gameState wildcard subscription
+ * (mirrors animationManager.js's own pattern) — no render-target wiring
+ * needed here since audio has nothing to gate, just play/mute. Called
+ * before gameManager.startGame() for the same reason animationManager
+ * is: so even the very first turn's sounds are covered.
  */
 
 import { createLogger } from './logger.js';
@@ -48,6 +54,7 @@ import * as uiManager from './uiManager.js';
 import * as modalManager from './modalManager.js';
 import * as localizationManager from './localizationManager.js';
 import * as animationManager from './animationManager.js';
+import * as audioManager from './audioManager.js';
 
 const log = createLogger('main');
 
@@ -72,11 +79,12 @@ async function bootstrap() {
     return;
   }
 
-  const [cardsFile, config, iconMap, localizationData] = await Promise.all([
+  const [cardsFile, config, iconMap, localizationData, audioMap] = await Promise.all([
     loadJSON('data/cards.json'),
     loadJSON('data/gameConfig.json'),
     loadJSON('data/iconMap.json'),
     loadJSON('data/localization.json'),
+    loadJSON('data/audioMap.json'),
   ]);
   const cardDefinitions = cardsFile.cards;
 
@@ -86,6 +94,7 @@ async function bootstrap() {
   modalManager.init(cardDefinitions);
   uiManager.initOrientationGate();
   animationManager.init([uiManager.render, modalManager.render]);
+  audioManager.init(config, audioMap);
 
   // A language switch never touches GameState, so it can't reuse
   // gameState's own pub/sub — this is the one place both re-render loops

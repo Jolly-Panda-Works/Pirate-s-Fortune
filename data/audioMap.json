@@ -1,0 +1,12 @@
+{
+  "_comment": "One entry per GDD §23 sound category. Mirrors data/iconMap.json's data-driven pattern (js/iconManager.js) so swapping placeholder clips for real audio later means editing this file only, never js/audioManager.js. `file` is a relative path served alongside index.html (e.g. fetched by `new Audio(...)`). `volume` is a 0-1 gain multiplier, tuned per-clip so none of the six categories overpowers another.",
+
+  "_placeholderNotice": "PLACEHOLDER ASSETS (Prompt 019 / v0.24.0): every .wav under assets/audio/ is a short procedurally-generated sine-wave tone (Python's stdlib `wave` module — no external library, no license, genuinely royalty-free) standing in for real sound design. MUST be replaced with real licensed/produced audio before release (GDD §27 Art Direction covers the equivalent visual-asset swap; audio has the same open item). Swapping is data-only: replace the file under assets/audio/, keep the same key/path here (or update `file`), no JS changes required.",
+
+  "reveal": { "file": "assets/audio/reveal.wav", "volume": 0.5 },
+  "shipwreck": { "file": "assets/audio/shipwreck.wav", "volume": 0.6 },
+  "returnToShip": { "file": "assets/audio/return-to-ship.wav", "volume": 0.5 },
+  "abilityTrigger": { "file": "assets/audio/ability-trigger.wav", "volume": 0.5 },
+  "specialAbility": { "file": "assets/audio/special-ability.wav", "volume": 0.55 },
+  "gameEnd": { "file": "assets/audio/game-end.wav", "volume": 0.6 }
+}

@@ -63,3 +63,31 @@ body {
   background: var(--color-gold);
   color: var(--color-bg);
 }
+
+/* Audio controls (Phase 18 — Prompt 019, GDD §23). Opposite fixed corner
+ * from .language-switcher (inline-START, not -END) so the two never
+ * collide, and stays correct under RTL for the same logical-property
+ * reason .language-switcher already documents above. */
+.audio-controls {
+  position: fixed;
+  inset-block-start: var(--space-sm);
+  inset-inline-start: var(--space-sm);
+  z-index: 110;
+}
+
+.mute-button {
+  font-family: var(--font-base);
+  font-size: 0.85rem;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--space-xs);
+  border: 1px solid var(--color-gold);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.mute-button--active {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-text);
+}

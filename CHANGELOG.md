@@ -7,6 +7,102 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.24.0] - Prompt 019: Audio
+
+### Added
+- `js/audioManager.js` (previously an empty stub) implements GDD §23.
+  Architecture decision (full rationale in the file's own header): four
+  of the six sound categories — card reveal, Shipwreck, Return to Ship,
+  game completion — are pure `gameState.on('*', ...)` subscriptions
+  (`EXPEDITION_AREA_CARD_ADDED`, `PHASE_CHANGED` -> SHIPWRECK/
+  RETURN_TO_SHIP, `RESULTS_SET`), requiring zero `turnManager.js`
+  changes. "Ability trigger" and "special ability" can't work the same
+  way — gameState.js's own events never carry which ability just
+  resolved — so, mirroring `animationManager.js`'s own precedent for the
+  identical gap, `playAbility(abilityKey)` is called explicitly from
+  `turnManager.js`'s `finishResolveAbility()` (same call site as
+  `animationManager.playAbilityTrigger()`) and classifies the sound via
+  `gameConfig.json`'s existing `abilities.singleResolution`/`chain`
+  split — a data lookup, never a hard-coded ability-key branch (rule 4).
+  - `playSound(soundKey)` — constructs a fresh `Audio` per call (tracked
+    in an `activeAudioEls` registry), guarded by `typeof Audio ===
+    'undefined'` so this module is always safe to import/call from a
+    plain Node test.
+  - `setMuted(value)`/`toggleMute()`/`isMuted()` — mute persisted to a
+    namespaced `localStorage` key (`pirateFortune.audioMuted`; no
+    `saveManager.js` exists yet — Prompt 020 is next — so this is the
+    prompt's own "simple standalone persisted flag" option).
+    `setMuted(true)` also calls `stopAllPlayback()`, pausing every
+    currently in-flight `Audio` element immediately — the prompt's own
+    exit criteria ("actually stops all playback, not just future
+    sounds").
+  - `mountMuteToggle()`/`refreshMuteButtonState()` — wires up
+    `index.html`'s new `#audio-mute-toggle` button, mirroring
+    `localizationManager.js`'s `mountSwitcher()`; bypasses
+    `inputManager.js`'s gameManager-routing seam (no GameState
+    dependency), exactly like the language switcher already does.
+  - `resetForTesting()` — testing-only reset (unsubscribes from
+    gameState, clears mute/registry state), mirroring
+    `animationManager.js`'s own.
+- `data/audioMap.json` — data-driven sound-category -> asset-path map,
+  mirroring `data/iconMap.json`'s pattern (`js/iconManager.js`); swapping
+  placeholder clips for real audio later is data-only, no JS changes.
+  Includes an explicit `_placeholderNotice` field.
+- `assets/audio/*.wav` (6 files: `reveal`, `shipwreck`,
+  `return-to-ship`, `ability-trigger`, `special-ability`, `game-end`) —
+  short procedurally-generated sine-wave placeholder tones (Python's
+  stdlib `wave` module, no external library, genuinely license-free per
+  the prompt's own "short, license-free clips" allowance). MUST be
+  replaced with real produced audio before release.
+- `#audio-controls` / `#audio-mute-toggle` in `index.html`, mirroring
+  `#language-switcher`'s placement/wiring pattern (opposite fixed
+  corner via `inset-inline-start`, correct under RTL).
+- `.audio-controls`/`.mute-button`/`.mute-button--active` in
+  `css/main.css` (mirroring `.language-switcher`/`.lang-button`), plus a
+  matching XS-tier condensed rule in `css/responsive.css`.
+- New `audio.controlsLabel`/`audio.muteButton`/`audio.unmuteButton` keys
+  added symmetrically to both `en` and `fa` in `data/localization.json`
+  (locale-symmetry test still passing). The mute button's label changes
+  on every toggle, independent of locale, so `refreshMuteButtonState()`
+  calls `localizationManager.t()` directly (a narrow read-only import,
+  matching how `uiManager.js`/`modalManager.js` already use it) in
+  addition to updating the element's `data-i18n` attribute for
+  subsequent locale switches.
+- `tests/unit/audio-manager.test.js` (17 tests): unlike
+  `animationManager.js`'s own DOM-touching trigger functions,
+  `audioManager.js`'s playback path only needs a global `Audio`
+  constructor, not a full DOM — so this suite genuinely exercises the
+  complete dispatch-and-classify logic headlessly via a lightweight
+  `FakeAudio` + in-memory `localStorage` shim (no jsdom needed), covering
+  each of the 4 gameState-driven categories firing exactly once,
+  `playAbility()`'s singleResolution/chain classification (every
+  configured ability key checked, plus an unknown-key fallback), mute
+  gating future sounds AND stopping in-flight ones, mute persistence
+  across a simulated `init()` reload, a corrupted/unavailable
+  `localStorage` never throwing, and headless-safety with no `Audio`
+  global at all.
+
+### Changed
+- `js/turnManager.js`: `finishResolveAbility()` now also calls
+  `audioManager.playAbility(definition.ability)`, fire-and-forget, right
+  alongside the existing `animationManager.playAbilityTrigger()` call —
+  the only turnManager.js change this prompt needed.
+- `js/main.js`: loads `data/audioMap.json` alongside the other data
+  files and calls `audioManager.init(config, audioMap)` after
+  `animationManager.init(...)`, before `gameManager.startGame()` (so
+  even the first turn's sounds are covered).
+
+### Verified
+- `tests/unit/audio-manager.test.js`: 17/17.
+- A one-off hand-rolled DOM-shim script (jsdom isn't available in this
+  environment; not checked into the repo, matching Prompt 015-017's own
+  precedent) drove the real `#audio-mute-toggle` button through
+  `mountMuteToggle()`/`refreshMuteButtonState()`: initial label "Mute",
+  click -> muted + label "Unmute" + `mute-button--active` class +
+  `localStorage` value `"true"`, second click -> fully reverts.
+- Full engine test suite: 192/192 (175 + 17 new, zero regressions, zero
+  existing tests modified).
+
 ## [0.23.0] - Prompt 018: Animations
 
 ### Added

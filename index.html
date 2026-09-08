@@ -24,6 +24,15 @@
     <button type="button" class="lang-button" data-lang="fa" data-i18n="language.buttonFa">FA</button>
   </div>
 
+  <!-- Audio controls (Phase 18 — Prompt 019): a single mute/unmute toggle,
+       wired up by js/audioManager.js's mountMuteToggle(). Lives outside
+       #app-root for the same reason #language-switcher does — not one of
+       GDD §19's board zones, must stay reachable regardless of the board's
+       own mount state. -->
+  <div id="audio-controls" class="audio-controls" data-i18n-aria-label="audio.controlsLabel">
+    <button type="button" id="audio-mute-toggle" class="mute-button" data-i18n="audio.muteButton">Mute</button>
+  </div>
+
   <!-- Orientation gate: populated in Phase 16 -->
   <div id="orientation-gate" class="orientation-gate" hidden>
     <p data-i18n="orientation.rotateDevice">Please rotate your device to landscape.</p>

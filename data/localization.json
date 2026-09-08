@@ -105,6 +105,11 @@
     },
     "cards": {
       "tooltip": "{type} ({value})"
+    },
+    "audio": {
+      "controlsLabel": "Audio controls",
+      "muteButton": "Mute",
+      "unmuteButton": "Unmute"
     }
   },
   "fa": {
@@ -212,6 +217,11 @@
     },
     "cards": {
       "tooltip": "{type} ({value})"
+    },
+    "audio": {
+      "controlsLabel": "تنظیمات صدا",
+      "muteButton": "بی‌صدا",
+      "unmuteButton": "پخش صدا"
     }
   }
 }
