@@ -7,6 +7,83 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.23.0] - Prompt 018: Animations
+
+### Added
+- `js/animationManager.js` (previously an empty stub) implements GDD §22.
+  Architecture decision (full rationale in the file's own header):
+  rather than making turnManager.js literally `async`/`await` an
+  animation acknowledgment (which would transitively force all 15 of its
+  functions, gameManager.js, and all 162 pre-existing tests to become
+  async), this module gates WHEN `uiManager.render()`/
+  `modalManager.render()` run instead of gating the GameState mutation
+  itself — game logic still runs to completion instantly and
+  synchronously, exactly as before.
+  - The render-gating hold: lets a render through immediately unless
+    already holding; the instant `PHASE_CHANGED` reports `SHIPWRECK`
+    (which turnManager.shipwreck() always sets BEFORE
+    burnManager.triggerShipwreck() moves anything), engages a 900ms
+    hold, collapsing every GameState change during it into one release
+    render reflecting the latest state.
+  - `acknowledgeDuplicate(expeditionCard)` — turnManager.shipwreck()'s
+    explicit, fire-and-forget acknowledgment call; flashes the specific
+    duplicate card via CSS on top of the automatic hold.
+  - `waitForAnimation(el, animationClass, timeoutMs)` — generic
+    animationend/transitionend-or-timeout helper (GDD §22's own
+    recommended timeout/fallback strategy); never rejects/throws.
+  - `playCardReveal()`, `playCollection()`,
+    `playAbilityTrigger(abilityKey, cards)` — cover GDD §22's "at
+    minimum" list (reveal, Return to Ship collection, all 8 ability
+    trigger moments), dispatched purely off ability key (rule 4).
+  - `setDisabled(true)` — debug escape hatch per the prompt's exit
+    criteria; game logic was never at risk either way in this design.
+  - `resetForTesting()` — testing-only reset for module-level hold
+    state, added after a real cross-test leakage bug surfaced during
+    test-writing.
+  - Every DOM-touching function guards `typeof document !== 'undefined'`
+    — required, since turnManager.js now calls into several of these
+    unconditionally on every reveal/shipwreck/ability/return.
+- `css/animations.css` (previously an empty stub): reveal, duplicate-
+  flash (900ms, matching `DUPLICATE_VISIBLE_HOLD_MS`), collection, and
+  one shared per-ability glow keyframe differentiated by an
+  `--ability-glow-color` custom property per ability. Respects
+  `prefers-reduced-motion`.
+- `tests/unit/animation-manager.test.js` (13 tests, using `node:test`'s
+  built-in `mock.timers`): the render-gating hold's full state machine.
+
+### Changed
+- `js/turnManager.js`: `revealCard()`/`shipwreck()`/
+  `finishResolveAbility()`/`returnToShip()` each fire the matching
+  animationManager trigger, fire-and-forget. turnManager.js's own
+  synchronous contract is completely unchanged — confirmed by all 162
+  pre-existing tests passing with zero modifications.
+- `js/uiManager.js` / `js/modalManager.js`: each removed its own direct
+  `gameState.on('*', render)` subscription — animationManager.js now
+  owns it and calls both `render` functions (passed in as `init()`'s
+  render targets) through its gate instead.
+- `js/main.js`: wires `animationManager.init([uiManager.render,
+  modalManager.render])` after both modules' own `init()` but before
+  `gameManager.startGame()`.
+
+### Verified
+- `tests/unit/animation-manager.test.js`: 13/13 — immediate render for
+  an ordinary phase change, immediate-then-held for SHIPWRECK, automatic
+  release after the hold elapses, multiple changes during a hold
+  collapsing into one release render, back-to-back Shipwrecks each
+  holding correctly, the `setDisabled()` escape hatch, a throwing render
+  target never breaking a sibling, headless-safety.
+- A hand-rolled DOM shim (with real `dataset`->attribute reflection)
+  drove a genuine duplicate through `turnManager` via
+  `gameManager.revealNextCard()` and, using actual elapsed real time
+  (not mocked), confirmed: `gameState.getPhase()` had ALREADY moved past
+  SHIPWRECK to the next turn immediately after the synchronous call
+  returned (game logic never gated), while the DOM's Expedition Area
+  zone still showed both duplicate cards, not yet cleared — only
+  catching up to the Shipwreck aftermath once real time genuinely
+  elapsed. This is the actual hard requirement, proven end-to-end.
+- Full engine test suite: 175/175 (162 + 13 new, zero regressions, zero
+  existing tests modified).
+
 ## [0.22.0] - Prompt 017: Responsive / Landscape UI — Stage C complete
 
 ### Added

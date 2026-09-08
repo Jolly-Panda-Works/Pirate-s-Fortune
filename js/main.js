@@ -28,6 +28,17 @@
  * has no dependency on cardDefinitions/config/localization/GameState at
  * all, so it's wired independently of the rest of bootstrap() below —
  * it would work identically even if every other line here failed.
+ * Phase 17 (Prompt 018 — Animation): also wires up animationManager.js,
+ * which now owns the GameState wildcard subscription uiManager.js/
+ * modalManager.js used to each hold themselves — both modules' `render`
+ * are passed in as animationManager.init()'s render TARGETS instead, so
+ * animationManager.js can gate WHEN they run (GDD §22's hard requirement:
+ * a duplicate must stay visible before Shipwreck's aftermath renders —
+ * see animationManager.js's own header for the full architecture
+ * rationale). Called after uiManager.init()/modalManager.init() (so
+ * their own unconditional first render() already happened) but before
+ * gameManager.startGame() (so every GameState event startGame() itself
+ * fires is already routed through the gate from the very first turn).
  */
 
 import { createLogger } from './logger.js';
@@ -36,6 +47,7 @@ import * as iconManager from './iconManager.js';
 import * as uiManager from './uiManager.js';
 import * as modalManager from './modalManager.js';
 import * as localizationManager from './localizationManager.js';
+import * as animationManager from './animationManager.js';
 
 const log = createLogger('main');
 
@@ -73,6 +85,7 @@ async function bootstrap() {
   uiManager.init(cardDefinitions);
   modalManager.init(cardDefinitions);
   uiManager.initOrientationGate();
+  animationManager.init([uiManager.render, modalManager.render]);
 
   // A language switch never touches GameState, so it can't reuse
   // gameState's own pub/sub — this is the one place both re-render loops

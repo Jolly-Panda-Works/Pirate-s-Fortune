@@ -167,6 +167,7 @@ import * as scoreManager from './scoreManager.js';
 import * as abilityResolver from './abilityResolver.js';
 import * as abilityManager from './abilityManager.js';
 import * as playerManager from './playerManager.js';
+import * as animationManager from './animationManager.js';
 import './abilities/index.js';
 
 const log = createLogger('turnManager');
@@ -257,6 +258,10 @@ function revealCard(drawnCard) {
   const expeditionCard = cardManager.moveInstance(drawnCard, cardManager.ZONES.EXPEDITION);
   gameState.addToExpeditionArea(expeditionCard);
   log.debug('Card revealed', { instanceId: expeditionCard.instanceId, defId: expeditionCard.defId });
+  // Fire-and-forget (Prompt 018 — see animationManager.js's own header
+  // for why this codebase never awaits presentation-layer motion): game
+  // logic below never waits on this, it only ever fires the visual.
+  animationManager.playCardReveal(expeditionCard);
   return checkDuplicate(expeditionCard);
 }
 
@@ -309,9 +314,23 @@ function checkDuplicate(expeditionCard) {
  * the duplicate's own ability structurally never executes (GDD §9: "The
  * duplicate card must never execute its own ability"). No player decision
  * occurs; this goes straight to END_TURN.
+ *
+ * GDD §22 HARD REQUIREMENT — "a duplicate card must visibly appear before
+ * Shipwreck resolves": gameState.setPhase(PHASES.SHIPWRECK) below fires
+ * BEFORE burnManager.triggerShipwreck() runs, while expeditionCard is
+ * still sitting, unmoved, in the Expedition Area — animationManager.js's
+ * own gameState subscription reacts to exactly that phase transition to
+ * hold every further render until the duplicate has been visible for a
+ * real duration (see animationManager.js's header for the full
+ * architecture rationale — turnManager.js itself stays synchronous and
+ * untouched by this: it never awaits animationManager, it only informs
+ * it). animationManager.acknowledgeDuplicate() below is this function's
+ * own explicit, named acknowledgment call — fire-and-forget, exactly
+ * like playCardReveal() above.
  */
 function shipwreck(expeditionCard) {
   gameState.setPhase(PHASES.SHIPWRECK);
+  animationManager.acknowledgeDuplicate(expeditionCard);
   const current = gameState.getCurrentPlayer();
   const lostLootCards = burnManager.triggerShipwreck();
   gameState.addTurnHistoryEntry({
@@ -461,6 +480,22 @@ function finishResolveAbility(expeditionCard, definition, targetContext) {
     gameCardDefinitions
   );
 
+  if (definition?.ability) {
+    // Fire-and-forget (see animationManager.js's own header) — covers
+    // GDD §22's "at minimum" list generically off the ability key alone
+    // (rule 4), never a per-card branch. `expeditionCard` is always the
+    // ability-bearing card; `targetContext.targetCardId` (a bare instance
+    // id string — Cannon/Dagger/Anchor/Map's own AbilityContext shape,
+    // see buildAbilityTargetContext() above) is included too when
+    // present, so e.g. Cannon's destroyed card / Dagger's stolen card
+    // also animate, not just the Cannon/Dagger card itself.
+    const involvedCards = [{ instanceId: expeditionCard.instanceId }];
+    if (targetContext.targetCardId) {
+      involvedCards.push({ instanceId: targetContext.targetCardId });
+    }
+    animationManager.playAbilityTrigger(definition.ability, involvedCards);
+  }
+
   if (result.shipwreckedCard) {
     log.info('A chain-generated card duplicated during ability resolution — Shipwreck required', {
       instanceId: result.shipwreckedCard.instanceId,
@@ -594,6 +629,11 @@ function returnToShip() {
     securedCards = collectManager.returnToShip(current.id, gameCardDefinitions);
   } else {
     gameState.clearExpeditionArea();
+  }
+
+  if (securedCards.length > 0) {
+    // Fire-and-forget (see animationManager.js's own header).
+    animationManager.playCollection(securedCards);
   }
 
   gameState.addTurnHistoryEntry({

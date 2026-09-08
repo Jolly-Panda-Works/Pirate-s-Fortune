@@ -24,14 +24,16 @@
  * decides WHEN a button is clickable (via `disabled`, using gameState's
  * read-only selectors), never WHAT happens as a result.
  *
- * Render strategy: subscribe once to gameState's wildcard event stream
- * (`gameState.on('*', ...)`) and do one full re-render per event, rather
- * than diffing per-zone. At this scale (<=60 cards, <=4 players) a full
+ * Render strategy: one full re-render per GameState event, rather than
+ * diffing per-zone. At this scale (<=60 cards, <=4 players) a full
  * re-render is simple, correct, and cheap — targeted DOM patching can be
  * introduced later if profiling ever shows a need. Re-creating every
  * button element on each render also means click listeners never need
  * manual cleanup — the old element (and its listener) is simply dropped
- * along with the rest of the previous render's DOM subtree.
+ * along with the rest of the previous render's DOM subtree. Since Prompt
+ * 018, this module no longer subscribes to gameState's wildcard event
+ * stream itself — see init()'s own comment and animationManager.js's
+ * header for why that subscription moved there.
  *
  * Prompt 016 scope (GDD §20 — Localization): every string this module
  * renders now goes through localizationManager.t()/formatNumber() instead
@@ -41,11 +43,10 @@
  * localizationManager.js is the one new import, used purely for
  * translation/number-formatting lookups (never GameState, never DOM
  * outside what this file already owned). Re-render on a locale switch is
- * wired the same way GameState changes already are: main.js subscribes
- * this module's own render() to localizationManager.onLocaleChange(),
- * exactly parallel to its existing gameState.on('*', render) — this file
- * itself has zero knowledge of *when* it gets called, only *what* to draw
- * each time.
+ * wired the same way GameState changes already are (Prompt 018 note
+ * above updates WHO owns the underlying subscription, not this
+ * mechanism): this file itself has zero knowledge of *when* it gets
+ * called, only *what* to draw each time.
  *
  * Prompt 017 scope (GDD §21 / rule 15 — Responsive/Landscape): the
  * orientation gate (initOrientationGate(), all the way at the bottom of
@@ -486,10 +487,14 @@ function init(cardDefinitionsParam) {
 
   mounted = true;
 
-  // Wildcard subscription (GDD §6.1 pub/sub) — one full re-render per
-  // GameState event, rather than a per-event-type handler map. Never
-  // polls: this is the ONLY place uiManager.js reacts to state changes.
-  gameState.on('*', render);
+  // Prompt 018: this module no longer subscribes to GameState directly —
+  // animationManager.js now owns that subscription (see its own header)
+  // so it can GATE when render() actually runs, holding it during a
+  // Shipwreck's duplicate-visible window (GDD §22's hard requirement).
+  // main.js wires `render` into animationManager.init()'s render targets
+  // instead. This file still has ZERO knowledge of animation timing —
+  // it only knows how to draw whatever GameState currently is, exactly
+  // as before.
 
   render();
   log.info('uiManager mounted');

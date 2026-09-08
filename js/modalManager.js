@@ -60,9 +60,18 @@
  * Stage-B-only English ABILITY_COPY table — getAbilityCopy() (below)
  * replaces it, reading straight from data/localization.json's
  * `abilities.<key>` block. Re-rendered on a locale switch the same way
- * GameState changes already are: main.js also subscribes this module's
- * render() to localizationManager.onLocaleChange(), parallel to its
- * existing gameState.on('*', render) subscription.
+ * GameState changes already are (Prompt 018's own note below updates WHO
+ * owns the underlying GameState subscription, not this mechanism):
+ * main.js also subscribes this module's render() to
+ * localizationManager.onLocaleChange().
+ *
+ * Prompt 018 scope (GDD §22 — Animation): this module no longer
+ * subscribes to gameState's wildcard event stream itself — see init()'s
+ * own comment and animationManager.js's header for the full rationale
+ * (animationManager.js now gates WHEN render() runs, holding it during a
+ * Shipwreck's duplicate-visible window). This file still has zero
+ * knowledge of animation timing; it only knows how to draw whatever
+ * GameState currently is, exactly as before.
  */
 
 import { createLogger } from './logger.js';
@@ -324,8 +333,12 @@ function render() {
 }
 
 /**
- * Mounts modalManager onto `#modal-root` (already present in index.html)
- * and subscribes to every future GameState change.
+ * Mounts modalManager onto `#modal-root` (already present in index.html).
+ * Since Prompt 018, this module no longer subscribes to GameState
+ * directly — animationManager.js owns that subscription so it can gate
+ * WHEN render() runs (GDD §22's hard requirement); main.js wires this
+ * module's `render` into animationManager.init()'s render targets
+ * instead, alongside uiManager.js's own (see both files' headers).
  * @param {Array<object>} cardDefinitionsParam - parsed data/cards.json `.cards`
  */
 function init(cardDefinitionsParam) {
@@ -338,7 +351,6 @@ function init(cardDefinitionsParam) {
   }
 
   mounted = true;
-  gameState.on('*', render);
   render();
   log.info('modalManager mounted');
 }
