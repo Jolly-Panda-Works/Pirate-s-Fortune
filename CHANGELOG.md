@@ -7,6 +7,70 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.25.0] - Prompt 020: Save System
+
+### Added
+- `js/gameState.js`: new `restoreStateSnapshot(snapshot)` mutator (the
+  write-side counterpart to the already-existing `getStateSnapshot()`
+  selector) — replaces the entire GameState in one atomic assignment and
+  emits a single new `STATE_RESTORED` event, so `animationManager.js`'s
+  and `audioManager.js`'s existing wildcard `gameState.on('*', ...)`
+  subscriptions react correctly (re-render once, play nothing) with
+  **zero changes to either file**.
+- `js/turnManager.js`: new `isSafeToSave()` export, backed by a
+  `SAVE_SAFE_PHASES` set (`PLAYER_DECISION`, `PLAYER_CHOICE`,
+  `END_TURN`, `GAME_END`, `SCORING`). Full rationale (including why this
+  gate has genuine load-bearing work to do, not just defensive
+  redundancy) is in the function's own header comment.
+- `js/saveManager.js` (previously an empty stub) implements GDD §24:
+  `serialize()`/`restore()` (a versioned envelope around
+  `gameState.getStateSnapshot()`/`restoreStateSnapshot()`), `save()`
+  (gated entirely by `turnManager.isSafeToSave()`), `hasSave()`/
+  `loadRaw()`/`resumeGame()`/`clearSave()` (localStorage-backed MVP
+  persistence), and an auto-save `gameState.on('*', ...)` subscription
+  (`init()`/`resetForTesting()`) mirroring `animationManager.js`/
+  `audioManager.js`'s identical pattern. DOM-free by design (GDD §18.2
+  scopes this module to serialization/restoration only).
+- `#save-controls`/`#resume-game-button` in `index.html` (bottom-inline-
+  start), hidden by default.
+- New `save.controlsLabel`/`save.resumeButton` keys added symmetrically
+  to both `en` and `fa` in `data/localization.json`.
+- `.save-controls`/`.resume-button` in `css/main.css`, plus a matching
+  XS-tier condensed rule in `css/responsive.css`.
+- `tests/unit/save-manager.test.js` (18 tests): serialize/restore
+  round-tripping, malformed-data defensiveness, the full
+  `SAVE_SAFE_PHASES`/unsafe-phase gating matrix, localStorage
+  persistence, the auto-save subscription, and a throwing/unavailable
+  `localStorage` never crashing anything.
+- `tests/integration/save-restore.test.js` (5 tests, the file this
+  prompt's own exit criteria names explicitly): real games driven
+  through `turnManager.js` to `PLAYER_DECISION`, `PLAYER_CHOICE`, and
+  `SCORING`, each asserting snapshot equality after a save/mutate/
+  restore round trip; a genuine `localStorage`-backed round trip
+  simulating a real page reload; and a full deterministic AI game
+  proving the auto-save gate rejects every mid-chain/mid-Resolution-
+  Queue phase along the way.
+
+### Changed
+- `js/main.js`: loads and wires `saveManager.js` with deliberately
+  different ordering from `animationManager.js`/`audioManager.js` —
+  `saveManager.hasSave()` is checked BEFORE the default game's
+  `startGame()` (to decide whether to show the Resume button), but
+  `saveManager.init()` (the auto-save subscription itself) is called
+  AFTER `startGame()` returns, specifically to avoid auto-save silently
+  overwriting a returning player's real save before they've had a chance
+  to see or use "Resume Game". Full rationale in `main.js`'s own header
+  comment.
+
+### Verified
+- `tests/unit/save-manager.test.js`: 18/18.
+- `tests/integration/save-restore.test.js`: 5/5.
+- A one-off hand-rolled DOM-shim script (not checked into the repo, same
+  precedent as Prompt 019's) exercised the real `#resume-game-button`
+  visibility/click/hide flow end-to-end against `saveManager.js`.
+- Full engine test suite: 215/215 (192 + 18 + 5 new, zero regressions,
+  zero existing tests modified).
+
 ## [0.24.0] - Prompt 019: Audio
 
 ### Added

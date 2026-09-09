@@ -721,6 +721,63 @@ function scoring() {
   return gameState.getPhase();
 }
 
+// ---------------------------------------------------------------------------
+// Save-safety gate (Phase 20 — Prompt 020, GDD §24).
+// ---------------------------------------------------------------------------
+
+/**
+ * GDD §24: "Saving should occur at discrete safe states rather than
+ * during the middle of an active ability chain [or] mid-Resolution-
+ * Queue." saveManager.js's own save() calls this before ever writing a
+ * save file — see that module's header for the full save-gating flow.
+ *
+ * WHY this set is what it is (read this before changing it): every
+ * function above runs as one deeply recursive, fully SYNCHRONOUS call
+ * chain (see this module's own top-of-file header) — GAME_INIT through
+ * SCORING is a single JS call stack except at the two places that
+ * genuinely pause and return control to an external caller:
+ * playerDecision() (a human's Explore Further/Return to Ship, GDD §7)
+ * and resolveAbility()'s own PLAYER_CHOICE branch (a human's targeted-
+ * ability selection, GDD §14.2 etc.) — plus scoring(), which is terminal
+ * (nothing calls further after it). That means PLAYER_TURN_START,
+ * DRAW_CARD, REVEAL_CARD, CHECK_DUPLICATE, SHIPWRECK, RESOLVE_ABILITY
+ * (before it either resolves inline or reaches the PLAYER_CHOICE pause),
+ * RETURN_TO_SHIP, END_TURN, and GAME_END are NEVER the phase
+ * `gameState.getPhase()` returns to a caller sitting outside this
+ * module's own call stack (e.g. a UI button click) — they're always
+ * already superseded by the next phase before control ever returns.
+ *
+ * saveManager.js, however, doesn't only call this from a UI click — it
+ * also auto-saves via its own `gameState.on('*', ...)` subscription
+ * (mirroring animationManager.js/audioManager.js's identical pattern),
+ * which DOES get invoked synchronously at every single intermediate
+ * phase, exactly like those two modules' own subscriptions already are.
+ * This is precisely why the gate has real, load-bearing work to do (not
+ * just defensive redundancy): PLAYER_TURN_START/DRAW_CARD/REVEAL_CARD/
+ * CHECK_DUPLICATE/SHIPWRECK/RESOLVE_ABILITY/RETURN_TO_SHIP genuinely DO
+ * reach saveManager's subscriber mid-turn, and this Set is what correctly
+ * rejects saving at every one of them. END_TURN/GAME_END are included
+ * per this Prompt's own literal wording ("end of a completed action
+ * (END_TURN, GAME_END)") — a subscriber DOES observe these two
+ * momentarily (unlike a button click, which never would), and they are
+ * genuinely safe: nothing is "mid-anything" at either one.
+ */
+const SAVE_SAFE_PHASES = new Set([
+  PHASES.PLAYER_DECISION,
+  PHASES.PLAYER_CHOICE,
+  PHASES.END_TURN,
+  PHASES.GAME_END,
+  PHASES.SCORING,
+]);
+
+/**
+ * @returns {boolean} whether the state machine is currently at rest
+ *   somewhere safe to serialize (see SAVE_SAFE_PHASES above).
+ */
+function isSafeToSave() {
+  return SAVE_SAFE_PHASES.has(gameState.getPhase());
+}
+
 export {
   startGame,
   playerTurnStart,
@@ -735,6 +792,7 @@ export {
   endTurn,
   gameEnd,
   scoring,
+  isSafeToSave,
 };
 
 export default {
@@ -751,4 +809,5 @@ export default {
   endTurn,
   gameEnd,
   scoring,
+  isSafeToSave,
 };

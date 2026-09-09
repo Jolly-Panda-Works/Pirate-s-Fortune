@@ -91,3 +91,30 @@ body {
   border-color: var(--color-danger);
   color: var(--color-text);
 }
+
+/* Save controls (Phase 19 — Prompt 020, GDD §24). Bottom-inline-START —
+ * opposite corner from .modal-preview (bottom-inline-END, css/modal.css)
+ * so the two never collide; top corners are already taken by
+ * .audio-controls/.language-switcher. */
+.save-controls {
+  position: fixed;
+  inset-block-end: var(--space-sm);
+  inset-inline-start: var(--space-sm);
+  z-index: 110;
+}
+
+.resume-button {
+  font-family: var(--font-base);
+  font-size: 0.9rem;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--space-xs);
+  border: 1px solid var(--color-gold);
+  background: var(--color-gold);
+  color: var(--color-bg);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.resume-button[hidden] {
+  display: none;
+}

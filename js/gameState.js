@@ -34,6 +34,13 @@
  *  - Every mutation emits an event (GDD §6.1) so future UI/animation/audio
  *    systems can react without polling — implemented as a tiny internal
  *    pub/sub, no external library, no browser EventTarget dependency.
+ *
+ * Phase 20 (Prompt 020 — Save System): getStateSnapshot()/
+ * restoreStateSnapshot() (near the bottom of this file) are the read/write
+ * pair saveManager.js round-trips through browser-side persistence — see
+ * restoreStateSnapshot()'s own doc comment for why a restore is one
+ * atomic replace-and-emit-once rather than a series of individual setter
+ * calls.
  */
 
 import { createLogger } from './logger.js';
@@ -391,6 +398,57 @@ function setShieldActive(active) {
   emit('SHIELD_ACTIVE_SET', { active: state.shieldActive });
 }
 
+/**
+ * GDD §24 (Prompt 020 — Save System): the write-side counterpart of
+ * getStateSnapshot() above (whose own doc comment already earmarked it
+ * "for saveManager.js (Phase 20)"). Replaces the ENTIRE module-private
+ * `state` object in one atomic assignment — never a series of individual
+ * setter calls — for two reasons:
+ *   1. Correctness: a restore must land on EXACTLY the snapshot's shape,
+ *      including fields no individual mutator can set on its own (e.g.
+ *      `currentPlayerIndex` together with `players` together with
+ *      `phase`, all consistent with each other) — piecing it back
+ *      together via ~13 separate setter calls would risk a
+ *      briefly-inconsistent intermediate state between them, and there
+ *      is no existing setter for every field (e.g. `results` has
+ *      setResults() but nothing restores `currentPlayerIndex` and
+ *      `players` as a single unit the way a real snapshot needs).
+ *   2. Presentation-layer behavior: a restore is fundamentally different
+ *      from ordinary gameplay progressing (see animationManager.js's own
+ *      SHIPWRECK-hold logic, and audioManager.js's per-event sound
+ *      triggers) — a page reload restoring a mid-game save must NOT
+ *      replay every historical animation hold or sound cue that
+ *      originally produced that state. Emitting exactly ONE new event
+ *      type here (`STATE_RESTORED`, below) rather than the dozen+
+ *      granular events a piecemeal rebuild would fire means
+ *      animationManager.js/audioManager.js's existing wildcard
+ *      `gameState.on('*', ...)` subscriptions each see exactly one
+ *      notification: animationManager.js's `handleGameStateEvent()`
+ *      unconditionally calls `requestRender()` for ANY event type before
+ *      its own `if (event.type === 'PHASE_CHANGED' ...)` branch, so the
+ *      board correctly re-renders once, immediately, without engaging
+ *      the Shipwreck-hold machinery (this isn't a `PHASE_CHANGED` event);
+ *      audioManager.js's own `switch (event.type)` has no
+ *      `'STATE_RESTORED'` case, so it correctly falls through to its
+ *      `default: return;` and plays nothing. Both are correct-by-
+ *      construction from this one new event type, with ZERO changes
+ *      needed to either module.
+ *
+ * `snapshot` is expected to be exactly the shape getStateSnapshot()
+ * itself returns (createInitialState()'s own field set) — saveManager.js
+ * is the only sanctioned caller, and it never reaches into this shape
+ * itself (see that module's own header), only round-trips whatever
+ * getStateSnapshot() gave it through JSON, unchanged.
+ *
+ * @param {object} snapshot - a full GameState shape, as returned by
+ *   getStateSnapshot()
+ */
+function restoreStateSnapshot(snapshot) {
+  state = clone(snapshot) ?? createInitialState();
+  emit('STATE_RESTORED', { phase: state.phase });
+  log.info('GameState restored from a snapshot', { phase: state.phase });
+}
+
 export {
   PHASES,
   // events
@@ -433,4 +491,5 @@ export {
   clearPendingAbilityChoice,
   setResults,
   setShieldActive,
+  restoreStateSnapshot,
 };

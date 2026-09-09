@@ -33,6 +33,19 @@
     <button type="button" id="audio-mute-toggle" class="mute-button" data-i18n="audio.muteButton">Mute</button>
   </div>
 
+  <!-- Save controls (Phase 19 — Prompt 020): a single "Resume Game"
+       button, hidden by default. main.js's bootstrap() unhides it only
+       when saveManager.hasSave() finds a save from a previous session,
+       and wires its click to saveManager.resumeGame(). saveManager.js
+       itself owns no DOM (GDD §18.2: "GameState serialization/
+       restoration" only) — this markup and its wiring belong to
+       main.js, the same split animationManager.js/uiManager.js already
+       have (engine-adjacent module drives WHEN, presentation layer owns
+       the DOM). -->
+  <div id="save-controls" class="save-controls" data-i18n-aria-label="save.controlsLabel">
+    <button type="button" id="resume-game-button" class="resume-button" data-i18n="save.resumeButton" hidden>Resume Game</button>
+  </div>
+
   <!-- Orientation gate: populated in Phase 16 -->
   <div id="orientation-gate" class="orientation-gate" hidden>
     <p data-i18n="orientation.rotateDevice">Please rotate your device to landscape.</p>

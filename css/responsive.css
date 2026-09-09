@@ -257,6 +257,16 @@
     font-size: 0.7rem;
     padding: 2px var(--space-xs);
   }
+
+  .save-controls {
+    inset-block-end: 2px;
+    inset-inline-start: 2px;
+  }
+
+  .resume-button {
+    font-size: 0.75rem;
+    padding: 2px var(--space-sm);
+  }
 }
 
 /* ---------------------------------------------------------------------

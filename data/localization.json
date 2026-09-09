@@ -110,6 +110,10 @@
       "controlsLabel": "Audio controls",
       "muteButton": "Mute",
       "unmuteButton": "Unmute"
+    },
+    "save": {
+      "controlsLabel": "Save controls",
+      "resumeButton": "Resume Game"
     }
   },
   "fa": {
@@ -222,6 +226,10 @@
       "controlsLabel": "تنظیمات صدا",
       "muteButton": "بی‌صدا",
       "unmuteButton": "پخش صدا"
+    },
+    "save": {
+      "controlsLabel": "تنظیمات ذخیره",
+      "resumeButton": "ادامه بازی"
     }
   }
 }
