@@ -133,10 +133,27 @@
     font-size: 0.7rem;
   }
 
-  /* Collapsing rival-player areas: each opponent card drops its own
-   * score-preview line (the CURRENT player's own score preview in the
-   * Ship Cargo zone stays — that number is the one actively useful
-   * during a decision; a rival's tentative score is nice-to-have only). */
+  /* Collapsing rival-player areas (Hearthstone-style compression): at
+   * this tier and narrower, every individual rival card face was
+   * competing for the same handful of pixels the Expedition Area needs
+   * most (Prompt 015: an AI's own chained Dagger/Anchor/Map targets can
+   * grow well past a simple 1-card-per-draw count). Swap the full
+   * per-card row for the compact "N cards" summary js/uiManager.js
+   * already renders alongside it (see that file's own comment) — a
+   * rival's exact holdings were never actionable information the way
+   * the current player's own Ship Cargo is, only their tentative score
+   * and count, both of which the summary line still carries. The
+   * per-opponent score-preview line right below is unaffected by this
+   * change (still hidden at this tier, per the rule just above).
+   */
+  .opponent__cards {
+    display: none;
+  }
+
+  .opponent__summary {
+    display: flex;
+  }
+
   .opponent .zone__count {
     display: none;
   }

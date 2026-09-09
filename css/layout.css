@@ -111,6 +111,21 @@
   margin-block-end: var(--space-xs);
 }
 
+/* Phase 21 (Prompt 021 — Polish, Hearthstone-style opponent
+ * compression): base/XL-MD tier shows full card detail and hides the
+ * compact summary — see css/responsive.css's SM tier override, which
+ * flips this for narrower viewports. Both elements are always rendered
+ * by js/uiManager.js (see that file's own comment); only visibility
+ * changes here. */
+.opponent__summary {
+  display: none;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
 .status-line {
   margin: 0;
   font-size: 0.9rem;

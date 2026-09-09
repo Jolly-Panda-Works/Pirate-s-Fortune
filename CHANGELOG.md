@@ -7,6 +7,45 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.26.0] - Prompt 021: Polish
+
+### Added
+- `docs/phases/phase-21-polish-notes.md` — the punch-list deliverable
+  this prompt requires: pattern-by-pattern review of
+  `docs/design/ui-ux-inspiration.md`'s 4 cited references, edge-case
+  re-verification results, and stability-batch results.
+- `js/uiManager.js`: `createCardElement()` now sets
+  `dataset.abilityKey` on every face-up card (the same `iconKey` it
+  already computed for icon resolution, just exposed for CSS).
+  `renderOpponents()` now renders both a full card row
+  (`.opponent__cards`) and a new compact summary line
+  (`.opponent__summary`) for every rival with cargo.
+- `css/cards.css`: persistent `border-inline-start` accent on
+  `.card--face-up[data-ability-key]` (Slay the Spire-style
+  offensive/defensive/beneficial color language, reusing
+  `css/animations.css`'s existing per-ability glow-color
+  categorization).
+- `css/layout.css`/`css/responsive.css`: `.opponent__summary` (hidden by
+  default, shown at SM/XS in place of `.opponent__cards`) — Hearthstone-
+  style opponent-area compression.
+- New `zones.opponentCardCountOne`/`Other` localization keys, added
+  symmetrically to `en`/`fa`.
+
+### Verified (no code change — see the punch-list doc for detail)
+- Incan Gold-style layout clarity, Balatro-style reveal beat: both
+  already solid from earlier prompts.
+- Empty Lost Loot × Treasure Map / × Treasure Chest+Golden Key,
+  Treasure Deck reaching exactly 0 mid-reveal (incl. mid Sea Serpent
+  chain), and a player reaching `SCORING` with an empty Ship Cargo — all
+  re-verified under real UI conditions (a one-off DOM-shim script
+  exercising `uiManager.js`+`modalManager.js`+`animationManager.js`
+  together, not just the existing engine-level tests). Zero exceptions.
+- A scoped 180-game AI-vs-AI stability batch (2/3/4 players): 0
+  crashes, 0 stuck states, 0 malformed results. (Prompt 022's own
+  official N=100 harness is separate, larger-scope future work.)
+- Full engine test suite: 215/215, unchanged (no new engine-layer
+  surface this prompt — UI/CSS only).
+
 ## [0.25.0] - Prompt 020: Save System
 
 ### Added

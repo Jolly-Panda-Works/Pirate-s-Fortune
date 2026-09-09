@@ -166,6 +166,27 @@ function createCardElement(instance, { faceUp = true } = {}) {
   const iconKey = definition.ability ?? definition.type;
   el.appendChild(renderIconNode(iconManager.resolveIcon(iconKey)));
 
+  // Phase 21 (Prompt 021 — Polish, Slay the Spire-style "is this card
+  // dangerous/defensive/beneficial" visual language): exposes the SAME
+  // iconKey already computed above as a data attribute purely for
+  // css/cards.css to key a PERSISTENT border accent off of (unlike
+  // css/animations.css's own `card--ability-*` classes, which
+  // animationManager.js only applies transiently during the ~500ms
+  // resolution glow — see that file's own header). Data-driven, not a
+  // hard-coded per-card branch here (rule 4): a new ability only ever
+  // needs one new 3-line color rule in cards.css, never a uiManager.js
+  // change, exactly like animations.css's own ability-glow palette
+  // already works. Gold Coin (no `ability`, iconKey falls back to its
+  // `type`) intentionally has no matching CSS rule — plain treasure
+  // stays visually neutral, since (see this file's own commit notes)
+  // every card type is equally duplicate-risky in this game; there is no
+  // fundamentally "safer" card the way Slay the Spire has Skills vs
+  // Attacks, so this only differentiates the 8 abilities' own effect
+  // category (offensive/defensive/beneficial), reusing the exact same
+  // categorization animations.css's glow palette already reasoned
+  // through.
+  el.dataset.abilityKey = iconKey;
+
   const valueEl = document.createElement('span');
   valueEl.className = 'card__value';
   valueEl.textContent = localizationManager.formatNumber(definition.value);
@@ -344,7 +365,37 @@ function renderOpponents() {
     if (player.shipCargo.length === 0) {
       appendEmptyNote(card, localizationManager.t('zones.shipCargoEmpty'));
     } else {
-      card.appendChild(renderCardRow(player.shipCargo, { faceUp: true }));
+      // Phase 21 (Prompt 021 — Polish, Hearthstone-style opponent
+      // compression, GDD §21's own "collapsing rival-player areas at
+      // smaller breakpoints"): BOTH a full card row (`.opponent__cards`)
+      // AND a compact "N cards" summary (`.opponent__summary`) are
+      // rendered unconditionally here — following this file's own
+      // established responsive philosophy (see this file's Prompt 017
+      // header note: "layout REFLOW... never rendering logic changes,
+      // only how much space/what size"). css/responsive.css alone
+      // decides which one is actually visible at a given breakpoint
+      // (full detail at XL/MD where there's room; the compact summary at
+      // SM/XS, where scanning every individual rival card face
+      // previously competed for the same handful of pixels the
+      // Expedition Area needs most). No uiManager.js change is ever
+      // needed again for a narrower/wider tier to want a different one
+      // of these two shown — only a responsive.css rule.
+      const cardsWrap = document.createElement('div');
+      cardsWrap.className = 'opponent__cards';
+      cardsWrap.appendChild(renderCardRow(player.shipCargo, { faceUp: true }));
+      card.appendChild(cardsWrap);
+
+      const summary = document.createElement('p');
+      summary.className = 'opponent__summary';
+      const summaryIcon = renderIconNode(iconManager.resolveIcon('zone.shipCargo'));
+      summary.appendChild(summaryIcon);
+      const countKey = player.shipCargo.length === 1 ? 'zones.opponentCardCountOne' : 'zones.opponentCardCountOther';
+      summary.appendChild(
+        document.createTextNode(
+          localizationManager.t(countKey, { count: localizationManager.formatNumber(player.shipCargo.length) })
+        )
+      );
+      card.appendChild(summary);
     }
 
     if (cardDefinitions) {

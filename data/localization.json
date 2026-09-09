@@ -31,7 +31,9 @@
       "lostLootCountOne": "{count} card",
       "lostLootCountOther": "{count} cards",
       "currentScorePreview": "Current score preview: {score}",
-      "scorePreview": "Score preview: {score}"
+      "scorePreview": "Score preview: {score}",
+      "opponentCardCountOne": "{count} card",
+      "opponentCardCountOther": "{count} cards"
     },
     "players": {
       "aiSuffix": "{name} (AI)"
@@ -147,7 +149,9 @@
       "lostLootCountOne": "{count} کارت",
       "lostLootCountOther": "{count} کارت",
       "currentScorePreview": "پیش‌نمایش امتیاز شما: {score}",
-      "scorePreview": "پیش‌نمایش امتیاز: {score}"
+      "scorePreview": "پیش‌نمایش امتیاز: {score}",
+      "opponentCardCountOne": "{count} کارت",
+      "opponentCardCountOther": "{count} کارت"
     },
     "players": {
       "aiSuffix": "{name} (هوش مصنوعی)"
