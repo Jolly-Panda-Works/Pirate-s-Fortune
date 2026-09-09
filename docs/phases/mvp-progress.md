@@ -27,8 +27,50 @@
 | 019 — Audio | 18 | ✅ Done — `js/audioManager.js` implemented (GDD §23): 4 of 6 sound categories (reveal/Shipwreck/Return to Ship/game completion) are pure `gameState.on('*', ...)` subscriptions, no `turnManager.js` changes needed; "ability trigger"/"special ability" classified via `gameConfig.json`'s existing `abilities.singleResolution`/`chain` split (one new fire-and-forget call in `turnManager.js`, same site as `animationManager.playAbilityTrigger()`); mute persisted to a namespaced `localStorage` key and actually pauses in-flight `Audio` elements, not just future ones; `data/audioMap.json` (mirrors `iconMap.json`'s data-driven pattern) + 6 procedurally-generated placeholder `.wav` clips in `assets/audio/` (Python stdlib `wave`, genuinely license-free); `#audio-controls` mute button in `index.html` mirroring `#language-switcher`; new `audio.*` keys added symmetrically to `en`/`fa` (`tests/unit/localization.test.js` still passing); `tests/unit/audio-manager.test.js` (17/17, using a lightweight `FakeAudio`/`localStorage` shim — no jsdom needed since this module's playback path never touches `document`) plus a one-off hand-rolled DOM-shim script confirming the real mute button/label/persistence wiring; full suite 192/192 | 0.24.0 |
 | 020 — Save System | 20 | ✅ Done — `js/saveManager.js` implemented (GDD §24): `serialize()`/`restore()` round-trip via `gameState.js`'s existing `getStateSnapshot()` selector and a new symmetric `restoreStateSnapshot()` mutator (one atomic replace + a single `STATE_RESTORED` event, so `animationManager.js`/`audioManager.js`'s existing wildcard subscriptions each react correctly with zero changes to either file — render once, play nothing); `save()` gated by a new `turnManager.isSafeToSave()` (own `SAVE_SAFE_PHASES` set: `PLAYER_DECISION`/`PLAYER_CHOICE`/`END_TURN`/`GAME_END`/`SCORING`), auto-saved via `saveManager`'s own `gameState.on('*', ...)` subscription mirroring animation/audio's pattern; `main.js` wires `saveManager.init()` AFTER the default game's `startGame()` (not before, unlike animation/audio) specifically to avoid auto-save silently overwriting a returning player's save before they can click Resume; `#save-controls`/`#resume-game-button` in `index.html` (hidden unless `saveManager.hasSave()`), new `save.*` keys added symmetrically to `en`/`fa`; `tests/unit/save-manager.test.js` (18/18) + required `tests/integration/save-restore.test.js` (5/5 — snapshot-equality round trips at `PLAYER_DECISION`/`PLAYER_CHOICE`/`SCORING`, a real `localStorage`-backed round trip, and proof the auto-save gate rejects every mid-chain/mid-Resolution-Queue phase) + a one-off hand-rolled DOM-shim script for the resume-button wiring; full suite 215/215 | 0.25.0 |
 | 021 — Polish | 21 | ✅ Done — `docs/design/ui-ux-inspiration.md`'s 4 cited patterns reviewed against the real implementation: 2 fixed (Slay the Spire-style persistent per-ability accent border via `data-ability-key`/`css/cards.css`; Hearthstone-style opponent compression via a new `.opponent__summary` compact line, CSS-toggled at SM/XS), 2 verified with no gap (Incan Gold layout, Balatro reveal beat); GDD §29.6-style edge cases re-verified under real UI conditions (not just unit tests) via a one-off DOM-shim exercising `uiManager.js`+`modalManager.js`+`animationManager.js` together — empty Lost Loot × Treasure Map/Chest+Key, Treasure Deck hitting exactly 0 mid-reveal (incl. mid Sea Serpent chain), and empty Ship Cargo at `SCORING`, all clean, zero exceptions; a scoped 180-game AI-vs-AI stability batch (2/3/4 players) ran clean (0 crashes/stuck-states) as a pre-check ahead of Prompt 022's own official N=100 harness; full punch-list deliverable at `docs/phases/phase-21-polish-notes.md`; full engine suite 215/215 (no new automated tests — this prompt's own changes are UI/CSS + verified-clean edge cases, not new engine surface) | 0.26.0 |
-| 022 — Testing (Regression Suite) | 22 | ⏳ Not started | — |
+| 022 — Testing (Regression Suite) | 22 | ✅ Done — coverage audit of the pre-existing suite against GDD §25's checklist found no gaps; `tests/scenarios/deterministic-full-game.test.js` adds one exact-final-state script per player count (2/3/4); `tests/scenarios/ai-simulation.test.js` adds the GDD §25.5 AI-simulation batch (N=100 default, `AI_SIM_N`-overridable) — 100/100 clean, also spot-checked at N=1000 (1000/1000 clean); `npm test` confirmed already correctly wired (Phase 0), now covers both new files; full deliverable at `docs/phases/phase-22-testing-notes.md`; full suite 219/219 | 0.27.0 |
 | 023 — Web Release | 23 | ⏳ Not started | — |
+
+## Notes on Prompt 022 — Testing (Regression Suite)
+
+Full deliverable: `docs/phases/phase-22-testing-notes.md`. Summary:
+
+- **Coverage audit**: walked GDD §25's own checklist (sorting, score
+  calculation, duplicate detection, seeded shuffle, localization
+  symmetry for `tests/unit/`; duplicate resolution, Shipwreck, ability
+  chains, empty Lost Loot, empty Treasure Deck, multiplayer turns,
+  save/restore for `tests/integration/`) against the pre-existing suite
+  built up incrementally since Prompt 001 — every category already
+  covered, no gaps found.
+- **`tests/scenarios/deterministic-full-game.test.js`** (new): the
+  prompt spec's own scenario requirement — "known GameState + known
+  deck order, driven end to end, exact final state asserted" — is
+  narrower than what `full-game-scenario.test.js` (Prompt 011) already
+  proves (that file only asserts internal-consistency invariants, by
+  design, since its purpose is "correct no matter which cards come
+  up"). Adds one scripted, fully-AI, exact-final-state scenario per
+  player count (2/3/4), each pinned to a real run's actual
+  `GameState.results`. Safe to pin because AI decision-making has zero
+  `Math.random` in its path (Prompt 015) — every seed reproduces
+  bit-for-bit.
+- **`tests/scenarios/ai-simulation.test.js`** (new): GDD §25.5's
+  AI-simulation batch — N=100 by default (`AI_SIM_N`-overridable), full
+  AI-vs-AI games cycling 2/3/4 players with per-game invariant checks
+  (reaches `SCORING`, card conservation, no duplicated instanceId,
+  stored score matches independent recomputation, recorded winner holds
+  max score, turn count within a sane bound). Failures accumulate
+  across the whole batch instead of aborting on the first one. Log
+  output silenced for the batch's duration (restored in a `finally`) so
+  `npm test`'s own output stays readable at N=100.
+- **Documented pass rate**: 100/100 at the default N (637ms), also
+  spot-checked at an ad hoc N=1000 — 1000/1000 (5.2s). Both zero
+  crashes/illegal states/corruption.
+- **`npm test` wiring**: confirmed already correctly wired to
+  `node --test` over `tests/**/*.test.js` as of Phase 0 (not actually a
+  placeholder by this point) — no config change needed; picks up both
+  new files automatically.
+- Full engine suite: 219/219 (215 pre-existing + 4 new — 3 deterministic
+  scenarios + 1 AI-simulation batch test, the latter itself running 100
+  games internally by default).
 
 ## Notes on Prompt 021 — Polish
 

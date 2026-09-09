@@ -7,6 +7,34 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [0.27.0] - Prompt 022: Testing (Regression Suite)
+
+### Added
+- `tests/scenarios/deterministic-full-game.test.js` — one scripted,
+  fully-AI, exact-final-state scenario per player count (2/3/4), each
+  pinned to a specific seed's actual `GameState.results` (scores +
+  winner) captured from a real run, distinct from
+  `full-game-scenario.test.js`'s (Prompt 011) internal-consistency-only
+  assertions.
+- `tests/scenarios/ai-simulation.test.js` — GDD §25.5's AI-simulation
+  batch: N=100 (env `AI_SIM_N`-overridable) full AI-vs-AI games per
+  `npm test` run, asserting no illegal moves, no state corruption
+  (duplicate instanceIds), no crashes, and no runaway/infinite loops
+  across the whole batch (failures accumulate rather than aborting
+  early).
+- `docs/phases/phase-22-testing-notes.md` — the punch-list deliverable
+  this prompt requires: a coverage audit of the pre-existing suite
+  against GDD §25's own checklist (no gaps found) plus the documented
+  AI-simulation pass rate (100/100 at N=100, 1000/1000 at an ad hoc
+  N=1000).
+
+### Verified (no code change)
+- `npm test` (`node --test` over `tests/**/*.test.js`) was already
+  correctly wired as of Phase 0 — confirmed it still covers every test
+  directory with zero config changes needed, and picks up both new
+  files automatically.
+- Full engine test suite: 219/219 (215 pre-existing + 4 new).
+
 ## [0.26.0] - Prompt 021: Polish
 
 ### Added
