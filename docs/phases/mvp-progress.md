@@ -28,7 +28,42 @@
 | 020 — Save System | 20 | ✅ Done — `js/saveManager.js` implemented (GDD §24): `serialize()`/`restore()` round-trip via `gameState.js`'s existing `getStateSnapshot()` selector and a new symmetric `restoreStateSnapshot()` mutator (one atomic replace + a single `STATE_RESTORED` event, so `animationManager.js`/`audioManager.js`'s existing wildcard subscriptions each react correctly with zero changes to either file — render once, play nothing); `save()` gated by a new `turnManager.isSafeToSave()` (own `SAVE_SAFE_PHASES` set: `PLAYER_DECISION`/`PLAYER_CHOICE`/`END_TURN`/`GAME_END`/`SCORING`), auto-saved via `saveManager`'s own `gameState.on('*', ...)` subscription mirroring animation/audio's pattern; `main.js` wires `saveManager.init()` AFTER the default game's `startGame()` (not before, unlike animation/audio) specifically to avoid auto-save silently overwriting a returning player's save before they can click Resume; `#save-controls`/`#resume-game-button` in `index.html` (hidden unless `saveManager.hasSave()`), new `save.*` keys added symmetrically to `en`/`fa`; `tests/unit/save-manager.test.js` (18/18) + required `tests/integration/save-restore.test.js` (5/5 — snapshot-equality round trips at `PLAYER_DECISION`/`PLAYER_CHOICE`/`SCORING`, a real `localStorage`-backed round trip, and proof the auto-save gate rejects every mid-chain/mid-Resolution-Queue phase) + a one-off hand-rolled DOM-shim script for the resume-button wiring; full suite 215/215 | 0.25.0 |
 | 021 — Polish | 21 | ✅ Done — `docs/design/ui-ux-inspiration.md`'s 4 cited patterns reviewed against the real implementation: 2 fixed (Slay the Spire-style persistent per-ability accent border via `data-ability-key`/`css/cards.css`; Hearthstone-style opponent compression via a new `.opponent__summary` compact line, CSS-toggled at SM/XS), 2 verified with no gap (Incan Gold layout, Balatro reveal beat); GDD §29.6-style edge cases re-verified under real UI conditions (not just unit tests) via a one-off DOM-shim exercising `uiManager.js`+`modalManager.js`+`animationManager.js` together — empty Lost Loot × Treasure Map/Chest+Key, Treasure Deck hitting exactly 0 mid-reveal (incl. mid Sea Serpent chain), and empty Ship Cargo at `SCORING`, all clean, zero exceptions; a scoped 180-game AI-vs-AI stability batch (2/3/4 players) ran clean (0 crashes/stuck-states) as a pre-check ahead of Prompt 022's own official N=100 harness; full punch-list deliverable at `docs/phases/phase-21-polish-notes.md`; full engine suite 215/215 (no new automated tests — this prompt's own changes are UI/CSS + verified-clean edge cases, not new engine surface) | 0.26.0 |
 | 022 — Testing (Regression Suite) | 22 | ✅ Done — coverage audit of the pre-existing suite against GDD §25's checklist found no gaps; `tests/scenarios/deterministic-full-game.test.js` adds one exact-final-state script per player count (2/3/4); `tests/scenarios/ai-simulation.test.js` adds the GDD §25.5 AI-simulation batch (N=100 default, `AI_SIM_N`-overridable) — 100/100 clean, also spot-checked at N=1000 (1000/1000 clean); `npm test` confirmed already correctly wired (Phase 0), now covers both new files; full deliverable at `docs/phases/phase-22-testing-notes.md`; full suite 219/219 | 0.27.0 |
-| 023 — Web Release | 23 | ⏳ Not started | — |
+| 023 — Web Release | 23 | ✅ Done — MVP COMPLETE. No-build-step confirmed; asset-size audit (fixed 1.7MB of unreferenced favicon dead weight, wired up real `<link rel="icon">`s); memory-leak investigation across a 12,000-game AI-simulation run traced an apparent leak to a test-harness artifact (not real — see `docs/phases/phase-23-web-release-notes.md`); subdirectory hosting verified with a real Playwright headless boot (0 console errors); `README.md` deployment section added. Full suite 219/219 | 1.0.0 |
+
+## Notes on Prompt 023 — Web Release (MVP COMPLETE, v1.0.0)
+
+Full deliverable: `docs/phases/phase-23-web-release-notes.md`. Summary:
+
+- **No build step**: confirmed, not assumed — `package.json` has no
+  build script or dependencies, no bundler config anywhere in the repo.
+  The repository root is the production build as-is.
+- **Asset-size audit**: total deployable payload ~2.3MB, reasonable.
+  Found `assets/icons/icon.ico`/`icon.png` (1.7MB master) were never
+  referenced anywhere — fixed by generating lightweight
+  `favicon-32.png` (5KB) and `apple-touch-icon.png` (51KB) and wiring
+  real `<link rel="icon">`/`<link rel="apple-touch-icon">` tags into
+  `index.html`.
+- **Memory-leak investigation**: a naive long AI-simulation run (reusing
+  Prompt 022's harness) looked like a real leak — heap grew linearly to
+  268MB over 12,000 games with no plateau. A heap-snapshot diff traced
+  it to accumulating Promises from `animationManager`'s fire-and-forget
+  calls. Root cause was the test harness, not the game: running
+  thousands of games in one uninterrupted synchronous loop never let
+  the event loop drain its microtask queue. Adding a single `await`
+  yield per game (mirroring how real play naturally yields between
+  turns) made the heap flat (5.5MB, stable). No actual leak — the false
+  trail is documented so it isn't re-chased later.
+- **Subdirectory boot**: verified with a real Playwright headless-browser
+  load from a subdirectory path (not domain root) — 6 zones mounted, 12
+  cards rendered, zero console errors or failed requests.
+- **`README.md`**: added a `## Deployment` section (Netlify/Vercel/
+  Cloudflare Pages, GitHub Pages, plain nginx/Apache); rewrote the
+  stale "Phase 0" status section to reflect MVP completion.
+- Full engine suite: 219/219, unaffected by this prompt's changes
+  (only `index.html`/`README.md` touched, no `js/` gameplay code
+  changed).
+- **This is the final prompt of the MVP roadmap.** Version bumped to
+  **1.0.0**.
 
 ## Notes on Prompt 022 — Testing (Regression Suite)
 

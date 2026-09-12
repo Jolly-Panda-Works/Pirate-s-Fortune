@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Treasure Raiders</title>
 
+  <!-- Phase 23 (Prompt 023 — Web Release): these assets already existed
+       under assets/icons/ but were never actually referenced anywhere
+       (confirmed via grep across js/, css/, index.html before this
+       prompt) — dead weight in the deployable static payload. icon.ico
+       (102KB, pre-existing multi-resolution .ico) is lightweight enough
+       to reference directly. icon.png (1.7MB, a 1254x1254 design
+       source, NOT referenced directly — too large for a shipped web
+       asset) is instead downscaled here into favicon-32.png (5KB) and
+       apple-touch-icon.png (51KB); see assets/icons/ for how they were
+       generated. -->
+  <link rel="icon" href="assets/icons/icon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+
   <!-- Phase 0: stylesheet load order matters — base, layout, components, then overrides -->
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css" />

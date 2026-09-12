@@ -7,6 +7,41 @@ Starts at `0.0.0` (empty repo). Bumped on every change:
 - **MINOR** — new files/systems/docs added, backward compatible.
 - **PATCH** — fixes or edits to existing files, no new systems.
 
+## [1.0.0] - Prompt 023: Web Release — MVP complete
+
+### Added
+- `index.html` — real `<link rel="icon">` / `<link rel="apple-touch-icon">`
+  tags, using the pre-existing `assets/icons/icon.ico` directly plus two
+  new lightweight derived assets, `assets/icons/favicon-32.png` (5KB)
+  and `assets/icons/apple-touch-icon.png` (51KB), generated from the
+  1.7MB master `icon.png`.
+- `README.md` — new `## Deployment` section (Netlify/Vercel/Cloudflare
+  Pages, GitHub Pages, plain nginx/Apache — no build step, no
+  server-side logic); `## Current status` rewritten from the stale
+  "Phase 0" text to reflect MVP completion.
+- `docs/phases/phase-23-web-release-notes.md` — full performance-pass
+  write-up: asset-size audit, a memory-leak investigation that traced a
+  large apparent leak to a test-harness artifact (microtask queue
+  starvation from never yielding to the event loop across thousands of
+  synchronous games) rather than a real game-code issue, and a real
+  headless-browser subdirectory-boot verification.
+
+### Fixed
+- `assets/icons/icon.ico`/`icon.png` were present in the repo but never
+  referenced anywhere (confirmed via grep) — 1.7MB of dead weight in
+  the deployable payload. Now wired up via the favicon links above.
+
+### Verified (no code change)
+- No build step required — confirmed via `package.json` (no build
+  script, no dependencies) and an absence of any bundler config.
+- No memory leak across a long (12,000-game) AI-simulation run — see
+  `docs/phases/phase-23-web-release-notes.md` §2 for the full
+  investigation and corrected methodology.
+- Subdirectory hosting (e.g. `user.github.io/repo-name/`) verified with
+  a real Playwright headless-browser boot: 6 zones mounted, 12 cards
+  rendered, zero console errors or failed requests.
+- Full engine test suite: 219/219, unaffected by this prompt's changes.
+
 ## [0.27.0] - Prompt 022: Testing (Regression Suite)
 
 ### Added

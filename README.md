@@ -7,15 +7,21 @@ Full design and architecture reference: [`docs/design/GDD.md`](docs/design/GDD.m
 
 ## Current status
 
-**Phase 0 — Project Foundation.** No gameplay exists yet. This phase only
-establishes the repository structure, documentation skeleton, configuration
-foundation, logger, and the HTML/CSS/JS shell. See
-[`docs/phases/phase-0-foundation.md`](docs/phases/phase-0-foundation.md).
+**MVP complete (v1.0.0)** — the full push-your-luck card game is playable
+end-to-end, bilingually (English/Persian), on desktop and
+mobile-landscape. All 25 phases of the [MVP roadmap](docs/phases/mvp-roadmap.md)
+are done: headless engine (Stage A), UI (Stage B), bilingual/responsive
+support (Stage C), and feel/release polish (Stage D — animation, audio,
+save/restore, a 219-test regression suite including a 100-game AI
+simulation batch, and this Prompt's production web-release pass). See
+[`docs/phases/mvp-progress.md`](docs/phases/mvp-progress.md) for the
+full per-prompt history.
 
 ## Running locally
 
-This is a static, framework-free ES-modules project. Serve the folder with
-any static file server (ES modules require `http://`, not `file://`):
+This is a static, framework-free ES-modules project — **no build step**.
+Serve the folder with any static file server (ES modules require
+`http://`, not `file://`):
 
 ```bash
 npx serve .
@@ -24,6 +30,35 @@ python3 -m http.server 8000
 ```
 
 Then open the printed local URL in a browser.
+
+## Deployment
+
+The whole repository *is* the production build — there is nothing to
+compile, bundle, or transpile (vanilla ES modules per GDD §18, no
+framework, no `npm run build` script). Every asset path in `index.html`
+and every `fetch()`/`import` in `js/` is a **relative** path (no leading
+`/`), so the app boots correctly whether it's served from a domain root
+or a subdirectory (e.g. `https://example.com/treasure-raiders/`) —
+verified with a real headless-browser boot from a subdirectory path as
+part of this prompt's performance pass.
+
+Deploy by uploading/pointing any static host at the repository root:
+
+- **Netlify / Vercel / Cloudflare Pages** — connect the repo (or drag-and-drop
+  the folder); leave the build command empty and set the publish/output
+  directory to the repository root (`.`).
+- **GitHub Pages** — enable Pages on the repo, source = the root of the
+  default branch (or `/docs` if you prefer a dedicated folder — not used
+  here).
+- **Plain nginx / Apache / any static file server** — point the document
+  root at the repository root. No server-side logic, database, or
+  environment variables are required; a plain `try_files $uri =404;`
+  (nginx) or default static config is sufficient.
+
+`/tests`, `/docs`, and `package.json`/`CHANGELOG.md` aren't required at
+runtime and can be excluded from the deployed artifact if a host charges
+by asset count, but leaving them in is harmless — nothing in `index.html`
+references them.
 
 ## Project structure
 
