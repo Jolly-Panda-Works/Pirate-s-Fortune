@@ -14,6 +14,7 @@ const UI = {
       steps: {
         fonts: 'Hoisting the sails (fonts)…',
         cards: 'Painting 60 treasure cards…',
+        models: 'Mustering the crew (3D models)…',
         audio: 'Tuning the sea shanties…',
         scene: 'Charting the islands (3D scene)…',
         server: 'Signalling the harbour (server)…',
@@ -202,6 +203,7 @@ const UI = {
       lines: [
         ['Game design & engine', 'Jolly Panda Studio'],
         ['3D client', 'React Three Fiber · Drei'],
+        ['Characters & props', 'POLYGON Pirate Pack — Synty Studios'],
         ['Multiplayer', 'Colyseus'],
         ['Physics', 'Rapier (react-three-rapier)'],
         ['Particles', 'three.quarks'],
@@ -225,6 +227,7 @@ const UI = {
       steps: {
         fonts: 'برافراشتن بادبان‌ها (فونت‌ها)…',
         cards: 'نقاشی ۶۰ کارت گنج…',
+        models: 'جمع کردن خدمه (مدل‌های سه‌بعدی)…',
         audio: 'کوک کردن آوازهای دریایی…',
         scene: 'نقشه‌برداری از جزیره‌ها (صحنه سه‌بعدی)…',
         server: 'ارتباط با بندر (سرور)…',
@@ -413,6 +416,7 @@ const UI = {
       lines: [
         ['طراحی بازی و موتور', 'Jolly Panda Studio'],
         ['کلاینت سه‌بعدی', 'React Three Fiber · Drei'],
+        ['کاراکترها و وسایل', 'POLYGON Pirate Pack — Synty Studios'],
         ['چندنفره', 'Colyseus'],
         ['فیزیک', 'Rapier (react-three-rapier)'],
         ['ذرات', 'three.quarks'],

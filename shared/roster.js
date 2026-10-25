@@ -3,14 +3,16 @@
  * crew) and the client (3D models, pickers). Presentation only; nothing
  * here affects the rules engine.
  *
- * Every look is built procedurally (client/src/three/Sailor.jsx) from the
- * fields below, so a licensed model pack can later replace a character
- * by id without touching gameplay.
+ * `model` names the character mesh in client/public/models/characters.glb
+ * (exported from the licensed Synty POLYGON Pirate Pack by
+ * tools/assets/export_synty.py). The other look fields drive the
+ * procedural stand-in shown while that file loads.
  */
 
 export const CHARACTERS = [
   {
     id: 'redbeard',
+    model: 'Character_Pirate_Captain_01',
     icon: '🧔',
     name: { en: 'Captain Redbeard', fa: 'کاپیتان ریش‌قرمز' },
     color: '#c0392b',
@@ -21,6 +23,7 @@ export const CHARACTERS = [
   },
   {
     id: 'anne',
+    model: 'Character_Female_Pirate_01',
     icon: '👩',
     name: { en: 'Anne the Quartermaster', fa: 'آنِ سرپرست' },
     color: '#16a085',
@@ -31,6 +34,7 @@ export const CHARACTERS = [
   },
   {
     id: 'barnaby',
+    model: 'Character_Pirate_Seaman_01',
     icon: '👴',
     name: { en: 'Old Salt Barnaby', fa: 'بارنابیِ کهنه‌کار' },
     color: '#7f8c8d',
@@ -41,6 +45,7 @@ export const CHARACTERS = [
   },
   {
     id: 'bones',
+    model: 'Character_Skeleton_01',
     icon: '💀',
     name: { en: 'Mister Bones', fa: 'آقای استخوان' },
     color: '#bdc3c7',
@@ -51,8 +56,9 @@ export const CHARACTERS = [
   },
   {
     id: 'mei',
+    model: 'Character_Female_Wench_01',
     icon: '🧭',
-    name: { en: 'Mei the Navigator', fa: 'مِی، ناوبر' },
+    name: { en: 'Rosa the Barmaid', fa: 'رُزا، ساقی میخانه' },
     color: '#8e44ad',
     skin: '#f3d3b0', hair: '#111111', beard: 'none', longHair: true,
     hat: 'none', hatColor: '#8e44ad', trim: '#d4a63a',
@@ -61,6 +67,7 @@ export const CHARACTERS = [
   },
   {
     id: 'hook',
+    model: 'Character_Pirate_First_Mate_01',
     icon: '🪝',
     name: { en: 'Hook Morgan', fa: 'مورگانِ قلاب‌دست' },
     color: '#2c3e50',
@@ -71,8 +78,9 @@ export const CHARACTERS = [
   },
   {
     id: 'tom',
+    model: 'Character_Pirate_Deckhand_01',
     icon: '💪',
-    name: { en: 'Bosun Big Tom', fa: 'تامِ گنده، سرملوان' },
+    name: { en: 'Deckhand Tom', fa: 'تام، ملوان عرشه' },
     color: '#d35400',
     skin: '#8d5524', hair: '#1a1a1a', beard: 'stubble', big: true,
     hat: 'bandana', hatColor: '#c0392b', trim: '#922b21',
@@ -81,14 +89,31 @@ export const CHARACTERS = [
   },
   {
     id: 'grace',
+    model: 'Character_Governors_Daughter_01',
     icon: '🦜',
-    name: { en: "Grace O'Malley", fa: 'گریس اومالی' },
+    name: { en: 'Lady Grace', fa: 'بانو گریس' },
     color: '#e67e22',
     skin: '#f6d7b0', hair: '#c0661d', beard: 'none', longHair: true,
     hat: 'feather', hatColor: '#5d2e0f', trim: '#e74c3c',
     shirt: '#fbeee6', coat: '#1e8449', pants: '#3b2a1a',
     extras: ['parrot'],
   },
+  // More crew from the POLYGON Pirate Pack (procedural fields are only the
+  // loading-time fallback look).
+  { id: 'blackbeard', model: 'Character_Pirate_blackbeard_01', icon: '⚔️', name: { en: 'Blackbeard', fa: 'ریش‌سیاه' }, color: '#1c1c1c',
+    skin: '#d8a47f', hair: '#111111', beard: 'long', hat: 'tricorn', hatColor: '#111111', trim: '#d4a63a', shirt: '#ecf0f1', coat: '#2c2c2c', pants: '#1a1a1a', extras: [] },
+  { id: 'rattles', model: 'Character_Skeleton_02', icon: '☠️', name: { en: 'Rattles', fa: 'تلق‌تلوق' }, color: '#95a5a6',
+    skin: '#ece4cf', hair: null, beard: 'none', skeleton: true, hat: 'bandana', hatColor: '#7b241c', trim: '#922b21', shirt: '#4d5656', coat: null, pants: '#1a1a1a', extras: [] },
+  { id: 'ghost', model: 'Character_Skeleton_03', icon: '👻', name: { en: 'The Ghost Captain', fa: 'کاپیتان شبح' }, color: '#5dade2',
+    skin: '#ece4cf', hair: null, beard: 'none', skeleton: true, hat: 'tricorn', hatColor: '#1b2631', trim: '#5dade2', shirt: '#1b2631', coat: '#17202a', pants: '#1a1a1a', extras: [] },
+  { id: 'navy', model: 'Character_English_Captain_01', icon: '🎖️', name: { en: 'Navy Captain', fa: 'کاپیتان نیروی دریایی' }, color: '#1f3a93',
+    skin: '#f1c27d', hair: '#ecf0f1', beard: 'none', hat: 'bicorne', hatColor: '#1c1c1c', trim: '#d4a63a', shirt: '#ecf0f1', coat: '#1f3a93', pants: '#ecf0f1', extras: [] },
+  { id: 'governor', model: 'Character_English_Govenor_02', icon: '🎩', name: { en: 'The Governor', fa: 'فرماندار' }, color: '#7d3c98',
+    skin: '#f6d7b0', hair: '#ecf0f1', beard: 'none', hat: 'none', hatColor: '#111', trim: '#d4a63a', shirt: '#ecf0f1', coat: '#7d3c98', pants: '#2c2c2c', extras: [] },
+  { id: 'redcoat', model: 'Character_English_Soldier_01', icon: '💂', name: { en: 'Marine Sergeant', fa: 'گروهبان تفنگدار' }, color: '#c0392b',
+    skin: '#f1c27d', hair: '#5d4037', beard: 'none', hat: 'tricorn', hatColor: '#111', trim: '#ecf0f1', shirt: '#ecf0f1', coat: '#c0392b', pants: '#ecf0f1', extras: [] },
+  { id: 'gentleman', model: 'Character_Gentleman_01', icon: '🧐', name: { en: 'The Gentleman', fa: 'آقای محترم' }, color: '#784212',
+    skin: '#e0ac69', hair: '#3b2414', beard: 'none', hat: 'none', hatColor: '#111', trim: '#d4a63a', shirt: '#fdf2e9', coat: '#784212', pants: '#3e2723', extras: [] },
 ];
 
 export const CHARACTER_IDS = CHARACTERS.map((c) => c.id);

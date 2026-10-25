@@ -1,6 +1,6 @@
 /**
- * Game arenas — the room around the card table. Procedural low-poly, no
- * external files. The table top sits at y = 0; floors are at FLOOR_Y.
+ * Game arenas — the room around the card table: procedural walls and floors
+ * dressed with props from the licensed Synty POLYGON Pirate Pack. The table top sits at y = 0; floors are at FLOOR_Y.
  */
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -12,6 +12,7 @@ import {
 } from 'three.quarks';
 
 import { useParticles } from './Particles.jsx';
+import { Prop } from './Synty.jsx';
 
 export const FLOOR_Y = -3.2;
 
@@ -68,39 +69,6 @@ function stoneTexture() {
 // Shared props
 // ---------------------------------------------------------------------------
 
-export function Barrel({ position, rotation = 0, scale = 1 }) {
-  return (
-    <group position={position} rotation-y={rotation} scale={scale}>
-      <mesh material={m('#7b4a22')} position-y={0.75} castShadow receiveShadow>
-        <cylinderGeometry args={[0.6, 0.6, 1.5, 12]} />
-      </mesh>
-      <mesh material={m('#8a5a2b')} position-y={0.75} scale={[1.08, 0.6, 1.08]}>
-        <cylinderGeometry args={[0.6, 0.6, 1.5, 12]} />
-      </mesh>
-      {[0.2, 1.3].map((y) => (
-        <mesh key={y} material={m('#2d2d2d', { metalness: 0.7 })} position-y={y} rotation-x={Math.PI / 2}>
-          <torusGeometry args={[0.62, 0.04, 4, 16]} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function Crate({ position, rotation = 0, size = 1.3 }) {
-  return (
-    <group position={position} rotation-y={rotation}>
-      <mesh material={m('#9a6a35')} position-y={size / 2} castShadow receiveShadow>
-        <boxGeometry args={[size, size, size]} />
-      </mesh>
-      {[-1, 1].map((s) => (
-        <mesh key={s} material={m('#6b4520')} position={[0, size / 2, s * (size / 2 + 0.01)]} rotation-z={Math.PI / 4}>
-          <boxGeometry args={[size * 1.3, 0.12, 0.02]} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 function Lantern({ position, swing = 0.12, intensity = 9, color = '#ffb35c', chain = 2.2 }) {
   const ref = useRef();
   const light = useRef();
@@ -119,38 +87,24 @@ function Lantern({ position, swing = 0.12, intensity = 9, color = '#ffb35c', cha
         <mesh material={m('#222', { metalness: 0.6 })} position-y={-chain / 2}>
           <cylinderGeometry args={[0.025, 0.025, chain, 4]} />
         </mesh>
-        <group position-y={-chain - 0.3}>
-          <mesh material={m('#2b2b2b', { metalness: 0.6 })} position-y={0.42}>
-            <coneGeometry args={[0.32, 0.3, 6]} />
-          </mesh>
-          <mesh>
-            <cylinderGeometry args={[0.24, 0.24, 0.55, 6]} />
-            <meshStandardMaterial color="#ffd27a" emissive={color} emissiveIntensity={3} toneMapped={false} transparent opacity={0.9} />
-          </mesh>
-          <mesh material={m('#2b2b2b', { metalness: 0.6 })} position-y={-0.32}>
-            <cylinderGeometry args={[0.3, 0.26, 0.1, 6]} />
-          </mesh>
-          <pointLight ref={light} color={color} intensity={intensity} distance={14} decay={1.6} />
+        <group position-y={-chain}>
+          <Prop name="SM_Prop_Lantern_01" position={[0, -2.6, 0]} shadows={false} />
+          <pointLight ref={light} position-y={-1.4} color={color} intensity={intensity} distance={14} decay={1.6} />
         </group>
       </group>
     </group>
   );
 }
 
-function Candle({ position }) {
-  const flame = useRef();
+function Candle({ position, name = 'SM_Item_Candle_01', scale = 1 }) {
+  const light = useRef();
   useFrame(({ clock }) => {
-    if (flame.current) flame.current.scale.y = 1 + Math.sin(clock.elapsedTime * 15 + position[0]) * 0.15;
+    if (light.current) light.current.intensity = 2.4 + Math.sin(clock.elapsedTime * 13 + position[0]) * 0.4;
   });
   return (
     <group position={position}>
-      <mesh material={m('#f2e6c9')} position-y={0.25}>
-        <cylinderGeometry args={[0.1, 0.11, 0.5, 8]} />
-      </mesh>
-      <mesh ref={flame} position-y={0.6}>
-        <coneGeometry args={[0.06, 0.2, 6]} />
-        <meshStandardMaterial color="#ffd27a" emissive="#ffae3b" emissiveIntensity={5} toneMapped={false} />
-      </mesh>
+      <Prop name={name} scale={scale} shadows={false} />
+      <pointLight ref={light} position-y={1.6 * scale} color="#ffb35c" distance={6} decay={1.8} />
     </group>
   );
 }
@@ -300,30 +254,29 @@ function ShipCabin() {
             <meshStandardMaterial map={wallTex} roughness={0.9} />
           </mesh>
         ))}
-        {/* cannons along the hull */}
-        {[-1, 1].map((s) => (
-          <group key={s} position={[s * 17.5, FLOOR_Y, -6]} rotation-y={s * Math.PI / 2}>
-            <mesh material={m('#4a2a12')} position-y={0.4}>
-              <boxGeometry args={[1.6, 0.6, 2.4]} />
-            </mesh>
-            <mesh material={m('#1e1e1e', { metalness: 0.8, roughness: 0.4 })} position={[0, 1.1, 0.6]} rotation-x={Math.PI / 2 - 0.08}>
-              <cylinderGeometry args={[0.32, 0.42, 3, 10]} />
-            </mesh>
-          </group>
-        ))}
-        <Barrel position={[-14, FLOOR_Y, -11]} />
-        <Barrel position={[-12.6, FLOOR_Y, -11.6]} rotation={1} />
-        <Barrel position={[-13.4, FLOOR_Y + 1.5, -11.2]} scale={0.9} />
-        <Crate position={[13, FLOOR_Y, -11.5]} rotation={0.3} />
-        <Crate position={[14.4, FLOOR_Y, -10.2]} rotation={-0.2} size={1.1} />
-        <Crate position={[13.4, FLOOR_Y + 1.3, -11.2]} rotation={0.6} size={0.9} />
-        {/* rope coil */}
-        <mesh material={m('#b08d57')} position={[11, FLOOR_Y + 0.15, -8]} rotation-x={Math.PI / 2}>
-          <torusGeometry args={[0.8, 0.18, 6, 18]} />
-        </mesh>
-        <Lantern position={[-6, FLOOR_Y + 9.3, -4]} />
-        <Lantern position={[6, FLOOR_Y + 9.3, -4]} />
-        <Lantern position={[0, FLOOR_Y + 9.3, -10]} intensity={6} />
+        {/* cannons run out at the gun ports, shot stacked beside them */}
+        <Prop name="SM_Prop_Cannon_01" position={[-18.2, FLOOR_Y, -4]} rotation={[0, -Math.PI / 2, 0]} />
+        <Prop name="SM_Prop_Cannon_01" position={[18.2, FLOOR_Y, -4]} rotation={[0, Math.PI / 2, 0]} />
+        <Prop name="SM_Prop_Crate_Cannonballs_01" position={[-17.5, FLOOR_Y, 2]} rotation={[0, 1.2, 0]} />
+        <Prop name="SM_Prop_Crate_Cannonballs_01" position={[17.5, FLOOR_Y, 2]} rotation={[0, -1.4, 0]} />
+        {/* the captain's hoard and the ship's stores */}
+        <Prop name="SM_Prop_Barrel_01" position={[-15.5, FLOOR_Y, -11.4]} />
+        <Prop name="SM_Prop_Barrel_02" position={[-11.8, FLOOR_Y, -11.8]} rotation={[0, 1, 0]} />
+        <Prop name="SM_Prop_Barrel_04" position={[-13.6, FLOOR_Y, -8.6]} rotation={[0, 2, 0]} />
+        <Prop name="SM_Prop_Stack_01" position={[14, FLOOR_Y, -11.2]} rotation={[0, -0.3, 0]} />
+        <Prop name="SM_Prop_Crate_01" position={[17.4, FLOOR_Y, -9.4]} rotation={[0, 0.4, 0]} />
+        <Prop name="SM_Prop_Parrot_01" position={[17.4, FLOOR_Y + 3.6, -9.4]} rotation={[0, -0.9, 0]} scale={1.6} />
+        <Prop name="SM_Prop_Chest_Treasure_01" position={[-8, FLOOR_Y, -12.2]} rotation={[0, 0.25, 0]} />
+        <Prop name="SM_Prop_TreasurePile_01" position={[-4.8, FLOOR_Y, -12.4]} />
+        <Prop name="SM_Prop_TreasurePile_01" position={[-10.8, FLOOR_Y, -9.6]} rotation={[0, 2, 0]} />
+        <Prop name="SM_Prop_ShipWheel_01" position={[8.5, FLOOR_Y + 0.3, -13.6]} />
+        <Prop name="SM_Prop_Anchor_01" position={[-19.4, FLOOR_Y, -9]} rotation={[0, Math.PI / 2, 0.1]} />
+        <Prop name="SM_Prop_Rope_Hanging_01" position={[19.6, FLOOR_Y + 3.2, -1]} rotation={[0, -Math.PI / 2, 0]} />
+        <Prop name="SM_Prop_Sack_01" position={[12, FLOOR_Y, -8.4]} rotation={[0, 0.7, 0]} />
+        <Lantern position={[-6, FLOOR_Y + 9.6, -9]} chain={1.2} />
+        <Lantern position={[6, FLOOR_Y + 9.6, -9]} chain={1.2} />
+        <Lantern position={[-14, FLOOR_Y + 9.6, -2]} chain={1.2} intensity={6} />
+        <Lantern position={[14, FLOOR_Y + 9.6, -2]} chain={1.2} intensity={6} />
         {/* moonlight through the stern windows */}
         <directionalLight position={[0, 6, -14]} intensity={0.35} color="#7aa7ff" />
       </group>
@@ -371,21 +324,13 @@ function Tavern() {
           </mesh>
         ))}
         {bottles.map((b, i) => (
-          <mesh key={i} position={[b.x, (i % 2 ? 5.06 : 3.66) + b.h / 2, -1.2]}>
-            <cylinderGeometry args={[0.13, 0.15, b.h, 6]} />
-            <meshStandardMaterial color={b.color} roughness={0.2} transparent opacity={0.85} />
-          </mesh>
+          <Prop key={i} name={`SM_Item_Bottle_0${(i % 4) + 1}`} position={[b.x, i % 2 ? 5.06 : 3.66, -1.2]} rotation={[0, i, 0]} shadows={false} />
         ))}
-        {[-5, -2, 1, 4].map((x) => (
-          <group key={x} position={[x, 2.33, 0.2]}>
-            <mesh material={m('#c9a227', { metalness: 0.5 })} position-y={0.3}>
-              <cylinderGeometry args={[0.22, 0.2, 0.6, 8]} />
-            </mesh>
-            <mesh material={m('#fff8e1')} position-y={0.62}>
-              <cylinderGeometry args={[0.23, 0.23, 0.08, 8]} />
-            </mesh>
-          </group>
+        {[-5, -2, 1, 4].map((x, i) => (
+          <Prop key={x} name={i % 2 ? 'SM_Item_Chalice_01' : 'SM_Item_Cup_01'} position={[x, 2.33, 0.2]} rotation={[0, x, 0]} />
         ))}
+        <Candle position={[-6.6, 2.33, 0.2]} name="SM_Item_Candelabra_01" />
+        <Candle position={[6.6, 2.33, 0.2]} name="SM_Item_Candelabra_01" />
       </group>
       {/* fireplace on the left */}
       <group position={[-16, FLOOR_Y, -9]} rotation-y={Math.PI / 4}>
@@ -416,9 +361,21 @@ function Tavern() {
           <boxGeometry args={[0.6, 0.6, 3]} />
         </mesh>
       ))}
-      <Barrel position={[13.5, FLOOR_Y, -9]} />
-      <Barrel position={[15, FLOOR_Y, -8]} rotation={0.7} />
-      <Barrel position={[14.2, FLOOR_Y + 1.5, -8.6]} scale={0.9} />
+      <Prop name="SM_Prop_Barrel_01" position={[14.5, FLOOR_Y, -9.6]} />
+      <Prop name="SM_Prop_Barrel_02" position={[17.6, FLOOR_Y, -7.4]} rotation={[0, 0.7, 0]} />
+      <Prop name="SM_Prop_Barrel_Half_01" position={[14.6, FLOOR_Y, -5.6]} />
+      {/* side tables and stools for the regulars */}
+      <Prop name="SM_Prop_Table_01" position={[-14.5, FLOOR_Y, -1]} rotation={[0, 0.4, 0]} />
+      <Candle position={[-14.5, FLOOR_Y + 4.05, -1]} name="SM_Item_SkullCandle_01" />
+      <Prop name="SM_Prop_Stool_02" position={[-17, FLOOR_Y, 0.4]} />
+      <Prop name="SM_Prop_Stool_02" position={[-12, FLOOR_Y, 1.6]} rotation={[0, 1, 0]} />
+      <Prop name="SM_Prop_Table_01" position={[15, FLOOR_Y, 0.5]} rotation={[0, -0.3, 0]} />
+      <Candle position={[15, FLOOR_Y + 4.05, 0.5]} name="SM_Item_Bottle_Candle_01" />
+      <Prop name="SM_Prop_Stool_01" position={[17.6, FLOOR_Y, 2.2]} />
+      {[-4, -1, 2, 5, 8].map((x) => (
+        <Prop key={x} name="SM_Prop_Stool_02" position={[x, FLOOR_Y, -9.8]} rotation={[0, x, 0]} />
+      ))}
+      <Prop name="SM_Prop_Pot_01" position={[-14.6, FLOOR_Y + 0.4, -8.2]} />
       {/* chandelier over the table */}
       <group position={[0, FLOOR_Y + 11.2, -3.2]}>
         <mesh material={m('#2b1d12')} position-y={-1.6}>
@@ -429,7 +386,7 @@ function Tavern() {
         </mesh>
         {Array.from({ length: 6 }, (_, i) => {
           const a = (i / 6) * Math.PI * 2;
-          return <Candle key={i} position={[Math.cos(a) * 1.6, -3.15, Math.sin(a) * 1.6]} />;
+          return <Candle key={i} position={[Math.cos(a) * 1.6, -3.15, Math.sin(a) * 1.6]} scale={0.7} />;
         })}
         <pointLight position-y={-2.8} color="#ffb35c" intensity={14} distance={18} decay={1.5} />
       </group>
@@ -443,10 +400,8 @@ export default function Arena({ id }) {
       <Table />
       {id === 'tavern' ? <Tavern /> : <ShipCabin />}
       {/* candles on the table corners */}
-      <Candle position={[-8.55, 0, 5.35]} />
-      <Candle position={[8.55, 0, 5.35]} />
-      <pointLight position={[-8.55, 1, 5.35]} color="#ffb35c" intensity={3} distance={6} />
-      <pointLight position={[8.55, 1, 5.35]} color="#ffb35c" intensity={3} distance={6} />
+      <Candle position={[-8.6, 0, 5.4]} scale={0.8} />
+      <Candle position={[8.6, 0, 5.4]} scale={0.8} />
     </>
   );
 }

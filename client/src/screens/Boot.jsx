@@ -5,11 +5,13 @@ import { useT } from '../i18n.js';
 import { preloadAudio } from '../audio.js';
 import { prewarmCardTextures } from '../three/cardTextures.js';
 import { checkServer } from '../net.js';
+import { MODEL_URLS, preloadSynty } from '../three/Synty.jsx';
 
 const STEPS = [
   { key: 'fonts', weight: 0.15 },
-  { key: 'cards', weight: 0.35 },
-  { key: 'audio', weight: 0.2 },
+  { key: 'cards', weight: 0.25 },
+  { key: 'models', weight: 0.2 },
+  { key: 'audio', weight: 0.1 },
   { key: 'scene', weight: 0.15 },
   { key: 'server', weight: 0.15 },
 ];
@@ -65,6 +67,13 @@ export default function Boot() {
       const started = performance.now();
       await run('fonts', async (p) => { await loadFonts(); p(1); });
       await run('cards', (p) => prewarmCardTextures(appStore.get().settings.locale, p));
+      await run('models', async (p) => {
+        // Download the Synty models up front, then let drei parse them into its cache.
+        const urls = Object.values(MODEL_URLS);
+        let done = 0;
+        await Promise.all(urls.map((u) => fetch(u).then((r) => r.arrayBuffer()).catch(() => null).finally(() => p(++done / urls.length))));
+        preloadSynty();
+      });
       await run('audio', (p) => preloadAudio(p));
       await run('scene', async (p) => { await waitForScene(); p(1); });
       await run('server', async (p) => { await checkServer(); p(1); });

@@ -4,7 +4,7 @@ import { Suspense, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { ContactShadows } from '@react-three/drei';
 
-import Sailor from './three/Sailor.jsx';
+import Crew from './three/Crew.jsx';
 import { CHARACTERS, ARENAS, characterById } from '../../shared/roster.js';
 import { appStore, useStore } from './store.js';
 import { uiTick } from './audio.js';
@@ -25,15 +25,15 @@ export function SailorPreview({ characterId, mood = 'idle', height = 300 }) {
       <Canvas
         shadows={quality !== 'low'}
         dpr={[1, 1.5]}
-        camera={{ position: [0, 2.2, 9.5], fov: 34 }}
-        onCreated={({ camera }) => camera.lookAt(0, 0.6, 0)}
+        camera={{ position: [0, 2.4, 13.5], fov: 34 }}
+        onCreated={({ camera }) => camera.lookAt(0, 0.2, 0)}
       >
-        <ambientLight intensity={0.5} color="#ffe2c0" />
-        <directionalLight position={[3, 6, 5]} intensity={2.2} castShadow />
+        <ambientLight intensity={0.9} color="#ffe2c0" />
+        <directionalLight position={[3, 6, 8]} intensity={3} castShadow />
         <pointLight position={[-4, 3, -3]} intensity={30} color="#5fa8ff" />
         <Suspense fallback={null}>
           <Turntable>
-            <Sailor character={characterById(characterId)} mood={mood} position={[0, 0, 0]} />
+            <Crew character={characterById(characterId)} mood={mood} position={[0, 0, 0]} />
           </Turntable>
         </Suspense>
         <ContactShadows position={[0, -3.2, 0]} opacity={0.5} scale={8} blur={2.5} far={4} />

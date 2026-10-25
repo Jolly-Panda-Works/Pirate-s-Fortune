@@ -11,7 +11,7 @@ import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
 
 import Card3D from './Card3D.jsx';
-import Sailor from './Sailor.jsx';
+import Crew from './Crew.jsx';
 import Arena from './Arenas.jsx';
 import PhysicsFx from './PhysicsFx.jsx';
 import Effects from './Effects.jsx';
@@ -306,6 +306,7 @@ export default function GameScene() {
       <hemisphereLight args={['#ffe2c0', '#1a120b', 0.25]} />
       {/* warm fill so the crew's faces read from the player's seat */}
       <pointLight position={[0, 7, 1]} intensity={45} distance={22} decay={1.4} color="#ffd2a1" />
+      <directionalLight position={[0, 6, 14]} intensity={1.1} color="#ffe6c8" />
       <spotLight
         position={[0, 14, 2]}
         angle={0.62}
@@ -365,7 +366,7 @@ export default function GameScene() {
           const seat = seatsById.get(p.id);
           return (
             <group key={p.id}>
-              <Sailor
+              <Crew
                 character={characterById(seat?.character)}
                 position={[x, 0, SAILOR_Z]}
                 scale={SAILOR_SCALE}
@@ -379,7 +380,7 @@ export default function GameScene() {
         })}
         {isPlayer && (
           <group position={MY_SAILOR_POS} rotation-y={-Math.PI / 2}>
-            <Sailor
+            <Crew
               character={characterById(seatsById.get(room.mySeatId)?.character)}
               scale={SAILOR_SCALE}
               seed={9}

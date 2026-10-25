@@ -13,7 +13,8 @@
     "android:sync": "npm run build && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "test": "node --test tests/**/*.test.js server/*.test.js",
-    "test:engine": "node --test --test-reporter=tap tests/**/*.test.js"
+    "test:engine": "node --test --test-reporter=tap tests/**/*.test.js",
+    "assets:synty": "node tools/assets/build-synty.mjs"
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",
+    "@gltf-transform/cli": "^4.5.1",
     "@vitejs/plugin-react": "^5.2.0",
     "concurrently": "^10.0.6",
     "vite": "^7.3.7"

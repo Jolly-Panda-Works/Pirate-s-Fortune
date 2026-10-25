@@ -3,12 +3,14 @@
  * floating treasure chest and a slowly orbiting camera.
  */
 
-import { useRef } from 'react';
+import { Suspense, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Sky, Environment, Lightformer, Float, Sparkles, Stars } from '@react-three/drei';
 
 import Ocean from './Ocean.jsx';
 import Ship from './Ship.jsx';
+import { waveHeight } from './Ocean.jsx';
+import { Galleon, ModelBoundary, Prop } from './Synty.jsx';
 import Effects from './Effects.jsx';
 import { ParticleProvider } from './Particles.jsx';
 import { appStore, useStore } from '../store.js';
@@ -21,6 +23,40 @@ function OrbitCam({ variant }) {
     camera.lookAt(0, 2.5, 0);
   });
   return null;
+}
+
+/** The Synty galleon riding the swell (procedural ship while it loads). */
+function SeaGalleon({ position, rotation = 0, length }) {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    ref.current.position.y = position[1] + waveHeight(position[0], position[2], t) * 0.6 - length * 0.06;
+    ref.current.rotation.z = Math.sin(t * 0.7) * 0.035;
+    ref.current.rotation.x = Math.sin(t * 0.55 + 1) * 0.025;
+  });
+  const fallback = <Ship position={position} rotation={rotation} scale={length / 10} />;
+  return (
+    <ModelBoundary fallback={fallback}>
+      <Suspense fallback={fallback}>
+        <group ref={ref} position={position} rotation-y={rotation}>
+          <Galleon length={length} />
+        </group>
+      </Suspense>
+    </ModelBoundary>
+  );
+}
+
+function SyntyChest() {
+  return (
+    <Float speed={2} rotationIntensity={0.4} floatIntensity={1.2}>
+      <group position={[8, 1.1, 6]} rotation-y={-0.8}>
+        <Prop name="SM_Prop_Chest_Treasure_01" scale={0.75} />
+        <pointLight position={[0, 2, 0]} color="#ffbf47" intensity={10} distance={8} />
+        <Sparkles count={50} scale={[3, 3, 3]} position={[0, 2, 0]} size={4} speed={0.6} color="#ffe38a" />
+      </group>
+    </Float>
+  );
 }
 
 function TreasureChest() {
@@ -74,9 +110,13 @@ export default function MenuScene({ variant = 'menu' }) {
       <directionalLight position={[20, 12, -30]} intensity={2.6} color="#ffcf9a" castShadow={quality !== 'low'} />
       <ParticleProvider>
         <Ocean sunDirection={[0.35, 0.08, -0.95]} />
-        <Ship position={[0, -1.2, 0]} rotation={0.3} scale={1.15} />
-        <Ship position={[-46, -1.2, -55]} rotation={2.2} scale={0.9} />
-        <TreasureChest />
+        <SeaGalleon position={[0, -1.2, 0]} rotation={0.3} length={13} />
+        <SeaGalleon position={[-46, -1.2, -55]} rotation={2.2} length={10} />
+        <ModelBoundary fallback={<TreasureChest />}>
+          <Suspense fallback={<TreasureChest />}>
+            <SyntyChest />
+          </Suspense>
+        </ModelBoundary>
       </ParticleProvider>
       <OrbitCam variant={variant} />
       <Effects quality={quality} dof={{ target: [0, 3, 0], focalLength: 0.08, bokehScale: 2.5, height: 480 }} />

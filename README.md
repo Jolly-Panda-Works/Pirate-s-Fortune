@@ -36,6 +36,8 @@ To build an APK locally you need the Android SDK. Run `npm run android:apk`.
 
 **How the engine is shared across rooms** (`server/engineHost.js`): `gameState.js` holds one state per process. Before each action, the server restores that room's own snapshot, calls `gameManager`, and takes the new snapshot out again. The engine is synchronous, so the calls cannot interleave. Every engine event is recorded as a replay "frame", and the client animates each one on a flat 3D board.
 
-**Sailors and arenas:** players pick their sailor in **Captain Profile**, and the crew sits around the table, reacting to turns, cargo returns and shipwrecks. The arena is chosen in solo setup, or by the host in the lobby. All models are procedural low-poly (`client/src/three/Sailor.jsx`, `Arenas.jsx`). A licensed model pack can replace a character by its roster id.
+**Sailors and arenas:** players pick their sailor in **Captain Profile**, and the crew sits around the table, reacting to turns, cargo returns and shipwrecks. The arena is chosen in solo setup, or by the host in the lobby. Characters, props and the menu galleon come from the licensed **Synty POLYGON Pirate Pack**. The 15 characters are posed seated at runtime (`client/src/three/Synty.jsx`), and a procedural stand-in shows while the models load.
+
+**Rebuilding the models:** extract your licensed pack into `game3d/` (git-ignored; never commit the raw pack), then run `npm run assets:synty`. This needs Blender 3.x; set `BLENDER=` if it isn't in the default location. It re-exports and meshopt-compresses `client/src/assets/models/*.glb` (about 2 MB). Keep this repository private, since the Synty licence doesn't allow redistributing the assets.
 
 The previous 2D web build is preserved on the `legacy-main` branch.
