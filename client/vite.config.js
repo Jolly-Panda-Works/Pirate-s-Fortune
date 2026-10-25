@@ -4,14 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '../..');
+const repoRoot = path.resolve(here, '..');
 
 export default defineConfig({
   root: here,
   plugins: [react()],
   resolve: {
     alias: {
-      // The original, untouched engine + data files of the 2D build.
+      // The original, untouched rules engine + its data files.
       '@engine': path.join(repoRoot, 'js'),
       '@data': path.join(repoRoot, 'data'),
       '@assets': path.join(repoRoot, 'assets'),

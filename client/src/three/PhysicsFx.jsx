@@ -10,7 +10,7 @@ import * as THREE from 'three';
 
 import { fxBus } from '../net.js';
 import { coinClink } from '../audio.js';
-import { TABLE_R, TABLE_Y } from './layout.js';
+import { BOARD_D, BOARD_W, TABLE_Y } from './layout.js';
 
 const coinGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.025, 18);
 const coinMat = new THREE.MeshStandardMaterial({ color: '#ffcc33', metalness: 0.95, roughness: 0.25, emissive: '#7a4b00', emissiveIntensity: 0.4 });
@@ -87,8 +87,8 @@ export default function PhysicsFx({ anchorOf, expeditionCenter }) {
 
   const floor = useMemo(() => (
     <RigidBody type="fixed" colliders={false}>
-      <CylinderCollider args={[0.1, TABLE_R]} position={[0, TABLE_Y - 0.1, 0]} />
-      <CuboidCollider args={[30, 0.2, 30]} position={[0, -1.3, 0]} />
+      <CuboidCollider args={[BOARD_W / 2 + 0.4, 0.1, BOARD_D / 2 + 0.4]} position={[0, TABLE_Y - 0.1, 0]} />
+      <CuboidCollider args={[35, 0.2, 25]} position={[0, TABLE_Y - 0.52, 0]} />
     </RigidBody>
   ), []);
 

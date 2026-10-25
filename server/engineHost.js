@@ -1,8 +1,8 @@
 /**
  * engineHost.js
  *
- * Hosts the ORIGINAL, unmodified headless rules engine (../../js/*) on
- * the Colyseus server. Nothing under ../../js is edited or forked — this
+ * Hosts the ORIGINAL, unmodified headless rules engine (../js/*) on
+ * the Colyseus server. Nothing under ../js is edited or forked — this
  * module only calls gameManager.js's public API and gameState.js's
  * snapshot pair, exactly like the 2D build's main.js/saveManager.js do.
  *
@@ -23,13 +23,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { setLevel } from '../../js/logger.js';
-import * as gameManager from '../../js/gameManager.js';
-import * as gameState from '../../js/gameState.js';
-import * as turnManager from '../../js/turnManager.js';
-import * as playerManager from '../../js/playerManager.js';
+import { setLevel } from '../js/logger.js';
+import * as gameManager from '../js/gameManager.js';
+import * as gameState from '../js/gameState.js';
+import * as turnManager from '../js/turnManager.js';
+import * as playerManager from '../js/playerManager.js';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function loadJSON(relative) {
   return JSON.parse(readFileSync(path.join(ROOT, relative), 'utf8'));

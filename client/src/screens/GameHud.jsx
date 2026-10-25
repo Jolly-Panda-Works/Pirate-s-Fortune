@@ -41,7 +41,7 @@ function ChoiceSheet({ pending, players }) {
   }, [pending]);
   return (
     <div className="sheet">
-      <h3 className="sheet__title">{TYPE_STYLE[defOf(pending.options[0]?.defId)?.type]?.icon} {t(`abilities.${pending.ability}.title`)}</h3>
+      <h3 className="sheet__title">{TYPE_STYLE[pending.ability]?.icon} {t(`abilities.${pending.ability}.title`)}</h3>
       <p className="sheet__prompt">{t(`abilities.${pending.ability}.prompt`)}</p>
       <p className="muted small">{t('game.clickTarget')}</p>
       {groups.map(([playerId, options]) => (
@@ -174,20 +174,6 @@ export default function GameHud() {
         {busy && <button type="button" className="icon-btn icon-btn--wide" onClick={skipReplay}>⏩ {t('game.skip')}</button>}
       </div>
 
-      <aside className="scoreboard">
-        {players.map((p) => {
-          const seat = room.seats.find((s) => s.id === p.id);
-          return (
-            <div key={p.id} className={`scoreboard__row ${p.id === current?.id ? 'is-current' : ''} ${p.id === me?.id ? 'is-me' : ''}`} style={{ '--seat': seat?.color ?? '#999' }}>
-              <span className="avatar avatar--sm">{seat?.avatar ?? '🏴‍☠️'}</span>
-              <span className="scoreboard__name">{p.name}</span>
-              <span className="scoreboard__cargo">🚢 {formatNumber(p.shipCargo.length)}</span>
-              <strong className="scoreboard__score">⭐ {formatNumber(scoreOf(p))}</strong>
-              {seat && !seat.isAI && !seat.connected && <span title={t('lobby.offline')}>📡</span>}
-            </div>
-          );
-        })}
-      </aside>
 
       {banner && (
         <div key={banner.id} className={`banner banner--${banner.tone}`}>
@@ -205,7 +191,7 @@ export default function GameHud() {
 
       {pending && <ChoiceSheet pending={pending} players={players} />}
 
-      {me && !finished && (
+      {me && !finished && !pending && (
         <div className="action-bar">
           <div className="action-bar__info">
             <span>⭐ {t('game.score')}: <strong>{formatNumber(myScore)}</strong></span>

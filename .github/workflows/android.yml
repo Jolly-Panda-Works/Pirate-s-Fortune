@@ -1,6 +1,6 @@
 name: Android build
 
-# Builds the 3D client (game3d/) into an Android APK with Capacitor.
+# Builds the 3D client into an Android APK with Capacitor.
 #  - every push / PR to main: tests + debug APK (downloadable artifact)
 #  - a tag like v2.1.0: also attaches the APKs to a GitHub Release
 #
@@ -36,17 +36,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: game3d/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Original engine tests (219)
-        run: npm test
-
-      - name: Install game3d dependencies
-        working-directory: game3d
+      - name: Install dependencies
         run: npm ci
 
-      - name: Server / engine-host tests
-        working-directory: game3d
+      - name: Engine (219) + server tests
         run: npm test
 
   android:
@@ -64,7 +59,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: game3d/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - uses: actions/setup-java@v4
         with:
@@ -78,7 +73,6 @@ jobs:
           packages: platform-tools
 
       - name: Version name
-        working-directory: game3d
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "ANDROID_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
@@ -87,11 +81,9 @@ jobs:
           fi
 
       - name: Install dependencies
-        working-directory: game3d
         run: npm ci
 
       - name: Build web client and sync into Android project
-        working-directory: game3d
         run: npm run android:sync
 
       - name: Decode release keystore
@@ -101,14 +93,14 @@ jobs:
           echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Assemble debug APK
-        working-directory: game3d/android
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
       - name: Assemble signed release APK + AAB
         if: env.HAS_KEYSTORE == 'true'
-        working-directory: game3d/android
+        working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -118,10 +110,10 @@ jobs:
       - name: Collect outputs
         run: |
           mkdir -p out
-          cp game3d/android/app/build/outputs/apk/debug/app-debug.apk "out/PiratesFortune-${ANDROID_VERSION_NAME}-debug.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/PiratesFortune-${ANDROID_VERSION_NAME}-debug.apk"
           if [ "$HAS_KEYSTORE" = "true" ]; then
-            cp game3d/android/app/build/outputs/apk/release/app-release.apk "out/PiratesFortune-${ANDROID_VERSION_NAME}.apk"
-            cp game3d/android/app/build/outputs/bundle/release/app-release.aab "out/PiratesFortune-${ANDROID_VERSION_NAME}.aab"
+            cp android/app/build/outputs/apk/release/app-release.apk "out/PiratesFortune-${ANDROID_VERSION_NAME}.apk"
+            cp android/app/build/outputs/bundle/release/app-release.aab "out/PiratesFortune-${ANDROID_VERSION_NAME}.aab"
           fi
           ls -la out
 
