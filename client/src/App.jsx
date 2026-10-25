@@ -1,8 +1,8 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 
 import { appStore, useStore } from './store.js';
-import { dirOf } from './i18n.js';
+import { dirOf, useT } from './i18n.js';
 import { Toasts } from './ui.jsx';
 import MenuScene from './three/MenuScene.jsx';
 import GameScene from './three/GameScene.jsx';
@@ -53,6 +53,38 @@ function Stage({ screen }) {
   );
 }
 
+/**
+ * Phones and tablets play in landscape only. The Android app is locked by
+ * its manifest; in a mobile browser we try to lock via the Screen
+ * Orientation API (after the splash tap enters fullscreen) and otherwise
+ * cover the game with a "rotate your device" notice while held upright.
+ */
+function useIsPortraitTouch() {
+  const query = () => window.matchMedia('(pointer: coarse)').matches && window.innerHeight > window.innerWidth;
+  const [portrait, setPortrait] = useState(query);
+  useEffect(() => {
+    const update = () => setPortrait(query());
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+  return portrait;
+}
+
+function OrientationGate() {
+  const t = useT();
+  if (!useIsPortraitTouch()) return null;
+  return (
+    <div className="rotate-gate" role="alert">
+      <div className="rotate-gate__phone">📱</div>
+      <p>{t('orientation.rotateDevice')}</p>
+    </div>
+  );
+}
+
 export default function App() {
   const screen = useStore(appStore, (s) => s.screen);
   const locale = useStore(appStore, (s) => s.settings.locale);
@@ -70,6 +102,7 @@ export default function App() {
         <Screen key={screen} />
       </div>
       <Toasts />
+      <OrientationGate />
     </div>
   );
 }

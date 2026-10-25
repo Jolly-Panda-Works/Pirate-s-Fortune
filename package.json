@@ -16,7 +16,7 @@
     "test:engine": "node --test --test-reporter=tap tests/**/*.test.js",
     "assets:synty": "node tools/assets/build-synty.mjs"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",

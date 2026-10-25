@@ -10,7 +10,7 @@ import { Sky, Environment, Lightformer, Float, Sparkles, Stars } from '@react-th
 import Ocean from './Ocean.jsx';
 import Ship from './Ship.jsx';
 import { waveHeight } from './Ocean.jsx';
-import { Galleon, ModelBoundary, Prop } from './Synty.jsx';
+import { Galleon, ModelBoundary, Prop, useModelsAvailable } from './Synty.jsx';
 import Effects from './Effects.jsx';
 import { ParticleProvider } from './Particles.jsx';
 import { appStore, useStore } from '../store.js';
@@ -35,7 +35,9 @@ function SeaGalleon({ position, rotation = 0, length }) {
     ref.current.rotation.z = Math.sin(t * 0.7) * 0.035;
     ref.current.rotation.x = Math.sin(t * 0.55 + 1) * 0.025;
   });
+  const available = useModelsAvailable();
   const fallback = <Ship position={position} rotation={rotation} scale={length / 10} />;
+  if (!available) return fallback;
   return (
     <ModelBoundary fallback={fallback}>
       <Suspense fallback={fallback}>
@@ -56,6 +58,18 @@ function SyntyChest() {
         <Sparkles count={50} scale={[3, 3, 3]} position={[0, 2, 0]} size={4} speed={0.6} color="#ffe38a" />
       </group>
     </Float>
+  );
+}
+
+function MenuChest() {
+  const available = useModelsAvailable();
+  if (!available) return <TreasureChest />;
+  return (
+    <ModelBoundary fallback={<TreasureChest />}>
+      <Suspense fallback={<TreasureChest />}>
+        <SyntyChest />
+      </Suspense>
+    </ModelBoundary>
   );
 }
 
@@ -112,11 +126,7 @@ export default function MenuScene({ variant = 'menu' }) {
         <Ocean sunDirection={[0.35, 0.08, -0.95]} />
         <SeaGalleon position={[0, -1.2, 0]} rotation={0.3} length={13} />
         <SeaGalleon position={[-46, -1.2, -55]} rotation={2.2} length={10} />
-        <ModelBoundary fallback={<TreasureChest />}>
-          <Suspense fallback={<TreasureChest />}>
-            <SyntyChest />
-          </Suspense>
-        </ModelBoundary>
+        <MenuChest />
       </ParticleProvider>
       <OrbitCam variant={variant} />
       <Effects quality={quality} dof={{ target: [0, 3, 0], focalLength: 0.08, bokehScale: 2.5, height: 480 }} />

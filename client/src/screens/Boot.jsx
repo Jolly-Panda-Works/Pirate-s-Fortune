@@ -5,7 +5,7 @@ import { useT } from '../i18n.js';
 import { preloadAudio } from '../audio.js';
 import { prewarmCardTextures } from '../three/cardTextures.js';
 import { checkServer } from '../net.js';
-import { MODEL_URLS, preloadSynty } from '../three/Synty.jsx';
+import { MODEL_URLS, detectModels, preloadSynty } from '../three/Synty.jsx';
 
 const STEPS = [
   { key: 'fonts', weight: 0.15 },
@@ -68,7 +68,9 @@ export default function Boot() {
       await run('fonts', async (p) => { await loadFonts(); p(1); });
       await run('cards', (p) => prewarmCardTextures(appStore.get().settings.locale, p));
       await run('models', async (p) => {
-        // Download the Synty models up front, then let drei parse them into its cache.
+        // Licensed Synty models are optional (see three/Synty.jsx). When present,
+        // download them up front, then let drei parse them into its cache.
+        if (!(await detectModels())) return p(1);
         const urls = Object.values(MODEL_URLS);
         let done = 0;
         await Promise.all(urls.map((u) => fetch(u).then((r) => r.arrayBuffer()).catch(() => null).finally(() => p(++done / urls.length))));

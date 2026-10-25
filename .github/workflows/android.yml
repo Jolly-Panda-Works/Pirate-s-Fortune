@@ -7,7 +7,10 @@ name: Android build
 # Optional repository configuration (Settings → Secrets and variables → Actions):
 #  Variables: GAME_SERVER_URL           default server baked into the app, e.g. wss://game.example.com
 #                                        (players can always change it in the app's Settings)
-#  Secrets:   ANDROID_KEYSTORE_BASE64   base64 of a release .jks keystore → enables a signed release APK/AAB
+#  Secrets:   ASSETS_TOKEN              read access to the private repo holding the licensed Synty models
+#                                        (Jolly-Panda-Works/pirates-fortune-assets); without it the APK
+#                                        uses the built-in procedural crew
+#             ANDROID_KEYSTORE_BASE64   base64 of a release .jks keystore → enables a signed release APK/AAB
 #             ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
 
 on:
@@ -52,6 +55,7 @@ jobs:
       VITE_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
       ANDROID_VERSION_CODE: ${{ github.run_number }}
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_ASSETS: ${{ secrets.ASSETS_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -82,6 +86,22 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # The Synty models are licensed and never committed to this public repo.
+      - name: Fetch licensed models (private)
+        if: env.HAS_ASSETS == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: Jolly-Panda-Works/pirates-fortune-assets
+          token: ${{ secrets.ASSETS_TOKEN }}
+          path: _private_assets
+
+      - name: Install licensed models
+        if: env.HAS_ASSETS == 'true'
+        run: |
+          mkdir -p client/public/models
+          cp _private_assets/models/* client/public/models/
+          rm -rf _private_assets
 
       - name: Build web client and sync into Android project
         run: npm run android:sync

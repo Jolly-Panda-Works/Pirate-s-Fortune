@@ -4,6 +4,15 @@ import { go } from '../store.js';
 import { useT } from '../i18n.js';
 import { unlockAudio, playSfx } from '../audio.js';
 
+/** Mobile browsers only allow an orientation lock while fullscreen. */
+function lockLandscape() {
+  if (window.Capacitor?.isNativePlatform?.() || !window.matchMedia('(pointer: coarse)').matches) return;
+  const root = document.documentElement;
+  Promise.resolve(root.requestFullscreen?.({ navigationUI: 'hide' }))
+    .then(() => window.screen.orientation?.lock?.('landscape'))
+    .catch(() => {});
+}
+
 export default function Splash() {
   const t = useT();
   const [stage, setStage] = useState(0); // 0 studio, 1 logo, 2 ready
@@ -17,6 +26,7 @@ export default function Splash() {
   useEffect(() => {
     const start = () => {
       unlockAudio();
+      lockLandscape();
       setTimeout(() => playSfx('returnToShip'), 60);
       go('menu');
     };

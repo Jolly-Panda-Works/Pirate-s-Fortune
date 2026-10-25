@@ -1,0 +1,10 @@
+{
+  "name": "Pirate's Fortune",
+  "short_name": "Pirate's Fortune",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b1a2a",
+  "theme_color": "#0b1a2a",
+  "icons": [{ "src": "/favicon.png", "sizes": "32x32", "type": "image/png" }]
+}

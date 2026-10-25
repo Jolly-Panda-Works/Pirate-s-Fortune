@@ -2,3 +2,5 @@
 node_modules/
 dist/
 game3d/
+client/public/models/
+desktop.ini

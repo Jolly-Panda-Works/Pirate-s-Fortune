@@ -1,6 +1,9 @@
 /**
  * Models from the licensed Synty POLYGON Pirate Pack, exported to GLB by
- * tools/assets/export_synty.py into client/src/assets/models/.
+ * `npm run assets:synty` into client/public/models/. That folder is
+ * git-ignored: the pack's licence doesn't allow redistributing the assets,
+ * so they only exist on machines (and CI builds) that own a licence.
+ * Without them, every component here falls back to the procedural look.
  *
  *  <Prop name="SM_Prop_Barrel_01" />   — a static prop, real-world metres × WORLD_SCALE
  *  <SyntySailor character={…} mood=… /> — a seated, animated crew member
@@ -18,12 +21,33 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
-import charactersUrl from '../assets/models/characters.glb?url';
-import propsUrl from '../assets/models/props.glb?url';
-import shipUrl from '../assets/models/ship.glb?url';
+import { appStore, useStore } from '../store.js';
 
-// Imported through Vite so each file gets a content-hashed URL (no stale caches).
-export const MODEL_URLS = { characters: charactersUrl, props: propsUrl, ship: shipUrl };
+const BASE = `${import.meta.env.BASE_URL}models/`;
+export const MODEL_URLS = { characters: '', props: '', ship: '' };
+
+/**
+ * Looks for client/public/models/manifest.json (written by the asset build).
+ * Its `version` busts caches whenever the models are regenerated.
+ * @returns {Promise<boolean>} whether the Synty models are available
+ */
+export async function detectModels() {
+  try {
+    const res = await fetch(`${BASE}manifest.json`, { cache: 'no-store' });
+    const manifest = res.ok ? await res.json() : null;
+    if (!manifest?.version) throw new Error('no manifest');
+    for (const key of Object.keys(MODEL_URLS)) MODEL_URLS[key] = `${BASE}${key}.glb?v=${manifest.version}`;
+    appStore.set({ modelsAvailable: true });
+    return true;
+  } catch {
+    appStore.set({ modelsAvailable: false });
+    return false;
+  }
+}
+
+export function useModelsAvailable() {
+  return useStore(appStore, (s) => Boolean(s.modelsAvailable));
+}
 
 /** Table top is 0.75 m tall and 3.2 world units: 1 m ≈ 4.27 units. */
 export const WORLD_SCALE = 3.2 / 0.75;
@@ -43,7 +67,65 @@ function prepare(object, { shadows = true } = {}) {
 // Props
 // ---------------------------------------------------------------------------
 
-export function Prop({ name, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1, shadows = true, ...rest }) {
+// Rough real-world sizes (w, d, h in metres) of the props the scenes use, so
+// simple stand-in shapes can take their place when the pack isn't installed.
+const STAND_INS = {
+  SM_Prop_Barrel_01: [0.86, 0.88, 1.07, 'cyl', '#7b4a22'],
+  SM_Prop_Barrel_02: [0.86, 0.88, 1.07, 'cyl', '#6b3f1d'],
+  SM_Prop_Barrel_04: [0.62, 0.6, 0.82, 'cyl', '#7b4a22'],
+  SM_Prop_Barrel_Half_01: [0.86, 0.86, 0.41, 'cyl', '#7b4a22'],
+  SM_Prop_Crate_01: [0.84, 0.84, 0.84, 'box', '#9a6a35'],
+  SM_Prop_Crate_Cannonballs_01: [0.95, 0.52, 0.48, 'box', '#8a5a2b'],
+  SM_Prop_Stack_01: [1.65, 0.88, 1.12, 'box', '#9a6a35'],
+  SM_Prop_Cannon_01: [0.99, 2.44, 1.03, 'box', '#2b2b2b'],
+  SM_Prop_Chest_Treasure_01: [0.97, 0.61, 0.59, 'box', '#6d3b16'],
+  SM_Prop_TreasurePile_01: [1.14, 1.12, 0.28, 'cyl', '#d4a63a'],
+  SM_Prop_Sack_01: [1.04, 0.6, 0.24, 'box', '#b8a07a'],
+  SM_Prop_Table_01: [1.18, 1.17, 0.95, 'cyl', '#6b3e1e'],
+  SM_Prop_Stool_01: [0.62, 0.58, 0.49, 'cyl', '#5a3418'],
+  SM_Prop_Stool_02: [0.53, 0.57, 0.52, 'cyl', '#5a3418'],
+  SM_Prop_Lantern_01: [0.31, 0.32, 0.6, 'cyl', '#ffd27a'],
+  SM_Item_Candle_01: [0.12, 0.12, 0.34, 'cyl', '#f2e6c9'],
+  SM_Item_Candelabra_01: [0.2, 0.2, 0.61, 'cyl', '#c9a227'],
+  SM_Item_SkullCandle_01: [0.2, 0.2, 0.34, 'cyl', '#ece4cf'],
+  SM_Item_Bottle_Candle_01: [0.13, 0.13, 0.4, 'cyl', '#1e8449'],
+  SM_Item_Cup_01: [0.21, 0.21, 0.3, 'cyl', '#c9a227'],
+  SM_Item_Chalice_01: [0.19, 0.19, 0.3, 'cyl', '#d4a63a'],
+  SM_Item_Bottle_01: [0.13, 0.13, 0.33, 'cyl', '#1e8449'],
+  SM_Item_Bottle_02: [0.21, 0.21, 0.25, 'cyl', '#7d3c98'],
+  SM_Item_Bottle_03: [0.16, 0.12, 0.21, 'cyl', '#a04000'],
+  SM_Item_Bottle_04: [0.17, 0.17, 0.26, 'cyl', '#1f618d'],
+  SM_Prop_Pot_01: [0.34, 0.33, 0.29, 'cyl', '#2b2b2b'],
+};
+
+function StandIn({ name, position, rotation, scale, ...rest }) {
+  const spec = STAND_INS[name];
+  if (!spec) return null;
+  const [w, d, h, kind, color] = spec;
+  return (
+    <group position={position} rotation={rotation} scale={scale * WORLD_SCALE} {...rest}>
+      <mesh position-y={h / 2} castShadow receiveShadow>
+        {kind === 'cyl' ? <cylinderGeometry args={[w / 2, w / 2, h, 12]} /> : <boxGeometry args={[w, h, d]} />}
+        <meshStandardMaterial color={color} roughness={0.85} flatShading />
+      </mesh>
+    </group>
+  );
+}
+
+export function Prop(props) {
+  const available = useModelsAvailable();
+  const p = { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1, ...props };
+  if (!available) return <StandIn {...p} />;
+  return (
+    <ModelBoundary fallback={<StandIn {...p} />}>
+      <Suspense fallback={null}>
+        <SyntyProp {...p} />
+      </Suspense>
+    </ModelBoundary>
+  );
+}
+
+function SyntyProp({ name, position, rotation, scale, shadows = true, ...rest }) {
   const { nodes } = useGLTF(MODEL_URLS.props);
   const object = useMemo(() => {
     const source = nodes[name];
@@ -272,6 +354,7 @@ export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0
 }
 
 export function preloadSynty() {
+  if (!appStore.get().modelsAvailable) return;
   useGLTF.preload(MODEL_URLS.characters);
   useGLTF.preload(MODEL_URLS.props);
   useGLTF.preload(MODEL_URLS.ship);
@@ -299,6 +382,8 @@ export class ModelBoundary extends Component {
 
 /** Synty character with the procedural sailor as loading / missing-file stand-in. */
 export function CrewMember({ fallback, ...props }) {
+  const available = useModelsAvailable();
+  if (!available) return fallback;
   return (
     <ModelBoundary fallback={fallback}>
       <Suspense fallback={fallback}>

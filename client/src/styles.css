@@ -368,6 +368,11 @@ button.mini-card:hover { transform: translateY(-6px) scale(1.06); box-shadow: 0 
 .card-tip__icon { font-size: 18px; }
 .card-tip__value { color: var(--gold-2); font-weight: 800; }
 
+/* ------------------------------------------------------------------ landscape gate */
+.rotate-gate { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center; background: radial-gradient(ellipse at center, #16324f, #07111c 75%); color: var(--ink); font-size: 1.15rem; font-weight: 600; }
+.rotate-gate__phone { font-size: 4rem; animation: rotate-hint 2.2s ease-in-out infinite; }
+@keyframes rotate-hint { 0%, 25% { transform: rotate(0); } 55%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+
 /* ------------------------------------------------------------------ responsive */
 @media (max-width: 900px) {
   .menu { grid-template-columns: 1fr; align-content: center; justify-items: center; }
