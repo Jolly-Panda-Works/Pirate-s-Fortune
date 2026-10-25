@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { go, useStore } from '../store.js';
+import { appStore, go, useStore } from '../store.js';
 import { useT, formatNumber } from '../i18n.js';
 import { Button, Panel } from '../ui.jsx';
 import { gameStore, leaveRoom, send } from '../net.js';
 import { gameConfig } from '../data.js';
+import { ArenaPicker } from '../pickers.jsx';
 
 export function Chat({ compact = false }) {
   const t = useT();
@@ -42,6 +43,7 @@ export default function Lobby() {
   const t = useT();
   const room = useStore(gameStore, (s) => s.room);
   const [copied, setCopied] = useState(false);
+  const locale = useStore(appStore, (s) => s.settings.locale);
   const me = room.seats.find((s) => s.id === room.mySeatId);
   const isHost = Boolean(me?.isHost);
   const { min, max } = gameConfig.players;
@@ -94,6 +96,9 @@ export default function Lobby() {
                 </li>
               ))}
             </ul>
+
+            <span className="label">{t('lobby.arena')}</span>
+            <ArenaPicker value={room.arena} locale={locale} disabled={!isHost} onChange={(id) => send('setArena', id)} />
 
             {isHost ? (
               <Button icon="⛵" variant="gold" className="btn--block" disabled={room.seats.length < min} onClick={() => send('start')}>

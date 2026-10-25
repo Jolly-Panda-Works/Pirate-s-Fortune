@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { appStore, go, resetStats, updateProfile, useStore } from '../store.js';
 import { useT, formatNumber } from '../i18n.js';
 import { Button, Confirm, Panel } from '../ui.jsx';
+import { CharacterGrid, SailorPreview } from '../pickers.jsx';
+import { characterById } from '../../../shared/roster.js';
 
-const AVATARS = ['☠️', '🏴‍☠️', '🦜', '🦑', '🐙', '🐊', '🦈', '🐒', '🦀', '👑', '💀', '⚓', '🧜'];
 const COLORS = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#ecf0f1'];
 
 function rankIndex(stats) {
@@ -38,7 +39,8 @@ export default function Profile() {
       <Panel title={t('profile.title')} onBack={() => go('menu')} wide>
         <div className="profile">
           <section className="profile__card" style={{ '--seat': profile.color }}>
-            <div className="profile__avatar">{profile.avatar}</div>
+            <SailorPreview characterId={profile.character} height={260} />
+            <p className="profile__character">{characterById(profile.character).name[locale]}</p>
             <div className="profile__rank">
               <span className="label">{t('profile.rank')}</span>
               <strong>{ranks[rank]}</strong>
@@ -53,13 +55,14 @@ export default function Profile() {
               </div>
             </label>
 
+
             <div className="field">
-              <span className="label">{t('profile.avatar')}</span>
-              <div className="chip-grid">
-                {AVATARS.map((a) => (
-                  <button type="button" key={a} className={`chip ${profile.avatar === a ? 'is-active' : ''}`} onClick={() => updateProfile({ avatar: a })}>{a}</button>
-                ))}
-              </div>
+              <span className="label">{t('profile.character')}</span>
+              <CharacterGrid
+                value={profile.character}
+                locale={locale}
+                onChange={(id) => updateProfile({ character: id, avatar: characterById(id).icon })}
+              />
             </div>
 
             <div className="field">

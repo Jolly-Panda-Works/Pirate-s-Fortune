@@ -4,13 +4,15 @@
  * engine view; the only thing it can send back is an ability-target click.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer, Html } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
 
 import Card3D from './Card3D.jsx';
+import Sailor from './Sailor.jsx';
+import Arena from './Arenas.jsx';
 import PhysicsFx from './PhysicsFx.jsx';
 import Effects from './Effects.jsx';
 import { ParticleProvider, useParticles } from './Particles.jsx';
@@ -18,16 +20,20 @@ import { getBackTexture } from './cardTextures.js';
 import {
   layoutCards, deckTopY, anchorFor, rivalsOf, rivalAreaX, rivalAreaWidth,
   DECK_POS, LOST_POS, TABLE_Y, CARD_W, CARD_D, BOARD_W, BOARD_D,
-  EXPEDITION_Z, EXPEDITION_W, MY_CARGO_Z, RIVAL_CARGO_Z, RIVAL_LABEL_Z,
+  EXPEDITION_Z, EXPEDITION_W, MY_CARGO_Z, RIVAL_CARGO_Z,
 } from './layout.js';
 import { fxBus, gameStore, send } from '../net.js';
 import { appStore, useStore } from '../store.js';
 import { scoreOf, TYPE_STYLE } from '../data.js';
 import { formatNumber, useT } from '../i18n.js';
+import { characterById } from '../../../shared/roster.js';
 
 const EXPEDITION_CENTER = [0, 0.1, EXPEDITION_Z];
 
-const LOOK_AT = new THREE.Vector3(0, 0, 1.15);
+const LOOK_AT = new THREE.Vector3(0, 1.4, -1.9);
+const SAILOR_Z = -7.15;
+const SAILOR_SCALE = 1.1;
+const MY_SAILOR_POS = [10.7, 0, 2.4];
 
 /**
  * Fixed camera framing the whole board (pulls back on narrow screens),
@@ -45,9 +51,9 @@ function CameraRig({ shakeRef }) {
 
   useEffect(() => {
     const aspect = size.width / Math.max(size.height, 1);
-    const fit = Math.max(1, 1.62 / aspect);
-    camera.fov = 38;
-    base.current.set(0, 15.6 * fit, 6.4 * fit);
+    const fit = Math.max(1, 1.7 / aspect);
+    camera.fov = 42;
+    base.current.set(0, 11.6 * fit, 12.6 * fit);
     camera.position.copy(base.current);
     camera.lookAt(LOOK_AT);
     camera.updateProjectionMatrix();
@@ -126,35 +132,6 @@ function Board({ rivalCount }) {
   );
 }
 
-/** Ship-deck planks around the board — calm, uncluttered surroundings. */
-function Deck() {
-  const texture = useMemo(() => {
-    const c = document.createElement('canvas');
-    c.width = 512;
-    c.height = 512;
-    const ctx = c.getContext('2d');
-    for (let i = 0; i < 8; i++) {
-      const shade = 70 + ((i * 37) % 22);
-      ctx.fillStyle = `rgb(${shade + 40}, ${shade + 6}, ${shade - 30})`;
-      ctx.fillRect(0, i * 64, 512, 62);
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(0, i * 64 + 62, 512, 2);
-      ctx.fillRect(((i * 173) % 400) + 40, i * 64, 2, 62);
-    }
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(6, 6);
-    return tex;
-  }, []);
-  return (
-    <mesh rotation-x={-Math.PI / 2} position-y={TABLE_Y - 0.32} receiveShadow>
-      <planeGeometry args={[70, 50]} />
-      <meshStandardMaterial map={texture} roughness={0.9} />
-    </mesh>
-  );
-}
-
 function TreasureDeck({ count }) {
   const back = useMemo(() => new THREE.MeshStandardMaterial({ map: getBackTexture(), roughness: 0.5 }), []);
   const side = useMemo(() => new THREE.MeshStandardMaterial({ color: '#e7d2a0', roughness: 0.9 }), []);
@@ -173,10 +150,10 @@ function TreasureDeck({ count }) {
   );
 }
 
-function RivalPlate({ player, seat, x, isCurrent }) {
+function RivalPlate({ player, seat, position, isCurrent }) {
   const color = seat?.color ?? '#f1c40f';
   return (
-    <Html position={[x, 0.05, RIVAL_LABEL_Z]} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
+    <Html position={position} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
       <div className={`seat-plate ${isCurrent ? 'is-current' : ''} ${seat && !seat.connected && !seat.isAI ? 'is-offline' : ''}`} style={{ '--seat': color }}>
         <span className="seat-plate__avatar">{seat?.avatar ?? '☠️'}</span>
         <span className="seat-plate__name">{player.name}{player.isAI ? ' 🤖' : ''}</span>
@@ -279,7 +256,11 @@ export default function GameScene() {
 
   const cards = useMemo(() => {
     if (!view) return [];
-    const all = [...view.expeditionArea, ...view.lostLoot, ...view.players.flatMap((p) => p.shipCargo)];
+    const unique = new Map();
+    for (const card of [...view.expeditionArea, ...view.lostLoot, ...view.players.flatMap((p) => p.shipCargo)]) {
+      if (!unique.has(card.instanceId)) unique.set(card.instanceId, card);
+    }
+    const all = [...unique.values()];
     const instant = firstLayout.current;
     firstLayout.current = false;
     return all.map((card) => {
@@ -298,20 +279,40 @@ export default function GameScene() {
   const seatsById = useMemo(() => new Map(room.seats.map((s) => [s.id, s])), [room.seats]);
   const current = view ? view.players[view.currentPlayerIndex] : null;
   const playing = view && view.phase !== 'SCORING';
+  const arena = room.arena || 'ship';
+
+  // Short-lived reactions: cheer when cargo is secured, slump on a shipwreck.
+  const [reactions, setReactions] = useState({});
+  useEffect(() => fxBus.on((event) => {
+    const mood = event.kind === 'return' ? 'cheer' : event.kind === 'shipwreck' ? 'sad' : null;
+    if (!mood || !event.playerId) return;
+    setReactions((r) => ({ ...r, [event.playerId]: mood }));
+    setTimeout(() => setReactions((r) => (r[event.playerId] === mood ? { ...r, [event.playerId]: null } : r)), 2200);
+  }), []);
+  const winners = view?.results?.winners ?? [];
+  const moodOf = (id) => {
+    if (reactions[id]) return reactions[id];
+    if (!playing) return winners.includes(id) ? 'cheer' : 'idle';
+    return id === current?.id ? 'thinking' : 'idle';
+  };
   const currentRival = rivals.findIndex((p) => p.id === current?.id);
 
   return (
     <>
-      <color attach="background" args={['#1b120b']} />
       <Environment resolution={128} frames={1}>
         <Lightformer intensity={0.6} color="#ffe2c4" position={[8, 8, -6]} scale={[12, 4, 1]} />
         <Lightformer intensity={0.35} color="#bcd4ff" position={[-8, 8, 6]} scale={[10, 10, 1]} />
       </Environment>
-      <hemisphereLight args={['#ffffff', '#2a2018', 0.35]} />
-      <directionalLight
-        position={[4, 16, 6]}
-        intensity={1.5}
-        color="#fff6ea"
+      <hemisphereLight args={['#ffe2c0', '#1a120b', 0.25]} />
+      {/* warm fill so the crew's faces read from the player's seat */}
+      <pointLight position={[0, 7, 1]} intensity={45} distance={22} decay={1.4} color="#ffd2a1" />
+      <spotLight
+        position={[0, 14, 2]}
+        angle={0.62}
+        penumbra={0.6}
+        intensity={260}
+        decay={1.6}
+        color="#ffe6c4"
         castShadow={quality !== 'low'}
         shadow-mapSize={quality === 'high' ? [2048, 2048] : [1024, 1024]}
         shadow-camera-left={-11}
@@ -322,7 +323,7 @@ export default function GameScene() {
       />
 
       <ParticleProvider>
-        <Deck />
+        <Arena id={arena} />
         <Board rivalCount={rivals.length} />
         <TreasureDeck count={view?.treasureDeckCount ?? 0} />
         <Html position={[LOST_POS[0], 0.05, LOST_POS[2] + CARD_D / 2 + 0.45]} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
@@ -359,15 +360,33 @@ export default function GameScene() {
           />
         ))}
 
-        {rivals.map((p, i) => (
-          <RivalPlate
-            key={p.id}
-            player={p}
-            seat={seatsById.get(p.id)}
-            x={rivalAreaX(i, rivals.length)}
-            isCurrent={playing && p.id === current?.id}
-          />
-        ))}
+        {rivals.map((p, i) => {
+          const x = rivalAreaX(i, rivals.length);
+          const seat = seatsById.get(p.id);
+          return (
+            <group key={p.id}>
+              <Sailor
+                character={characterById(seat?.character)}
+                position={[x, 0, SAILOR_Z]}
+                scale={SAILOR_SCALE}
+                seed={i}
+                lookX={-x / 9}
+                mood={moodOf(p.id)}
+              />
+              <RivalPlate player={p} seat={seat} position={[x, 4.75 * SAILOR_SCALE, SAILOR_Z - 0.4]} isCurrent={playing && p.id === current?.id} />
+            </group>
+          );
+        })}
+        {isPlayer && (
+          <group position={MY_SAILOR_POS} rotation-y={-Math.PI / 2}>
+            <Sailor
+              character={characterById(seatsById.get(room.mySeatId)?.character)}
+              scale={SAILOR_SCALE}
+              seed={9}
+              mood={moodOf(room.mySeatId)}
+            />
+          </group>
+        )}
 
         <Physics gravity={[0, -9.81, 0]}>
           <PhysicsFx anchorOf={anchorOf} expeditionCenter={EXPEDITION_CENTER} />

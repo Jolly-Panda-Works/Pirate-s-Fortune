@@ -17,20 +17,13 @@ import { randomUUID } from 'node:crypto';
 
 import { RoomState, Seat, ChatLine } from './schema.js';
 import { runInRoom, takeOverSeat, toPublicView, cardDefinitions, gameConfig, PHASES } from './engineHost.js';
+import { CHARACTERS, ARENA_IDS, DEFAULT_ARENA, characterById } from '../shared/roster.js';
 
 const MIN_PLAYERS = gameConfig.players.min;
 const MAX_PLAYERS = gameConfig.players.max;
 const RECONNECT_SECONDS = 45;
 
-const AI_CREW = [
-  { name: 'Blackbeard', avatar: '☠️', color: '#c0392b' },
-  { name: 'Anne Bonny', avatar: '🦜', color: '#16a085' },
-  { name: 'Calico Jack', avatar: '🦑', color: '#8e44ad' },
-  { name: 'Grace O\'Malley', avatar: '🐙', color: '#d35400' },
-  { name: 'Captain Kidd', avatar: '🐊', color: '#2c3e50' },
-];
-
-const AVATARS = new Set(['☠️', '🏴‍☠️', '🦜', '🦑', '🐙', '🐊', '🦈', '🐒', '🦀', '👑', '💀', '⚓', '🧜']);
+const pickArena = (id) => (ARENA_IDS.includes(id) ? id : DEFAULT_ARENA);
 
 function cleanName(raw, fallback) {
   const name = String(raw ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 18);
@@ -48,6 +41,7 @@ export class PirateRoom extends Room {
     const state = new RoomState();
     state.mode = this.mode;
     state.isPrivate = this.mode === 'solo' || Boolean(options.private);
+    state.arena = pickArena(options.arena);
     this.setState(state);
 
     if (state.isPrivate) this.setPrivate(true);
@@ -66,6 +60,9 @@ export class PirateRoom extends Room {
     this.onMessage('addBot', (client) => this.hostOnly(client, () => this.addBot()));
     this.onMessage('removeSeat', (client, seatId) => this.hostOnly(client, () => this.removeBot(seatId)));
     this.onMessage('chat', (client, text) => this.chat(client, text));
+    this.onMessage('setArena', (client, arena) => this.hostOnly(client, () => {
+      if (this.state.status !== 'playing') this.state.arena = pickArena(arena);
+    }));
     this.onMessage('sync', (client) => this.sendSync(client));
   }
 
@@ -82,8 +79,10 @@ export class PirateRoom extends Room {
     seat.id = this.pendingResume?.humanId ?? `seat-${++this.seatCounter}`;
     seat.sessionId = client.sessionId;
     seat.name = cleanName(profile.name, `Pirate ${this.seatCounter}`);
-    seat.avatar = AVATARS.has(profile.avatar) ? profile.avatar : '☠️';
-    seat.color = /^#[0-9a-f]{6}$/i.test(profile.color ?? '') ? profile.color : '#f1c40f';
+    const character = characterById(profile.character);
+    seat.character = character.id;
+    seat.avatar = character.icon;
+    seat.color = /^#[0-9a-f]{6}$/i.test(profile.color ?? '') ? profile.color : character.color;
     seat.isHost = this.humanSeats().length === 0;
     seat.order = this.state.seats.size;
     this.state.seats.set(seat.id, seat);
@@ -141,13 +140,15 @@ export class PirateRoom extends Room {
   addBot() {
     if (this.state.status !== 'lobby' && this.state.status !== 'finished') return;
     if (this.state.seats.size >= MAX_PLAYERS) return;
-    const used = new Set([...this.state.seats.values()].map((s) => s.name));
-    const crew = AI_CREW.find((c) => !used.has(c.name)) ?? AI_CREW[0];
+    const used = new Set([...this.state.seats.values()].map((s) => s.character));
+    const free = CHARACTERS.filter((c) => !used.has(c.id));
+    const crew = free[Math.floor(Math.random() * free.length)] ?? CHARACTERS[0];
     const seat = new Seat();
     seat.id = `seat-${++this.seatCounter}`;
     seat.sessionId = '';
-    seat.name = crew.name;
-    seat.avatar = crew.avatar;
+    seat.name = crew.name.en;
+    seat.character = crew.id;
+    seat.avatar = crew.icon;
     seat.color = crew.color;
     seat.isAI = true;
     seat.order = this.state.seats.size;
@@ -195,10 +196,11 @@ export class PirateRoom extends Room {
     for (const p of resume.snapshot.players) {
       if (this.state.seats.has(p.id)) continue;
       const seat = new Seat();
-      const crew = AI_CREW.find((c) => c.name === p.name) ?? AI_CREW[this.state.seats.size % AI_CREW.length];
+      const crew = CHARACTERS.find((c) => c.name.en === p.name) ?? CHARACTERS[this.state.seats.size % CHARACTERS.length];
       seat.id = p.id;
       seat.name = p.name;
-      seat.avatar = crew.avatar;
+      seat.character = crew.id;
+      seat.avatar = crew.icon;
       seat.color = crew.color;
       seat.isAI = true;
       seat.order = resume.snapshot.players.findIndex((x) => x.id === p.id);

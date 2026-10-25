@@ -56,6 +56,7 @@ const DEFAULT_STATS = { played: 0, wins: 0, bestScore: 0, totalScore: 0, cardsSe
 const DEFAULT_PROFILE = {
   name: 'Sailor',
   avatar: '☠️',
+  character: 'redbeard',
   color: '#f1c40f',
   createdAt: Date.now(),
   stats: DEFAULT_STATS,

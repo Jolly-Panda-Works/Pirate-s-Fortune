@@ -17,6 +17,7 @@ export class Seat extends Schema {
     this.sessionId = '';
     this.name = '';
     this.avatar = '';
+    this.character = '';
     this.color = '';
     this.isAI = false;
     this.isHost = false;
@@ -29,6 +30,7 @@ defineTypes(Seat, {
   sessionId: 'string',
   name: 'string',
   avatar: 'string',
+  character: 'string',
   color: 'string',
   isAI: 'boolean',
   isHost: 'boolean',
@@ -52,6 +54,7 @@ export class RoomState extends Schema {
     this.mode = 'online';
     this.status = 'lobby'; // lobby | playing | finished
     this.isPrivate = false;
+    this.arena = 'ship';
     this.seats = new MapSchema();
     this.chat = new ArraySchema();
     this.view = '';
@@ -63,6 +66,7 @@ defineTypes(RoomState, {
   mode: 'string',
   status: 'string',
   isPrivate: 'boolean',
+  arena: 'string',
   seats: { map: Seat },
   chat: [ChatLine],
   view: 'string',

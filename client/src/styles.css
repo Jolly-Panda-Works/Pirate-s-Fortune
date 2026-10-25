@@ -220,6 +220,26 @@ button { font: inherit; color: inherit; }
 .history__vs { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history__date { color: var(--ink-dim); font-size: 0.78rem; }
 
+/* ------------------------------------------------------------------ characters / arenas */
+.sailor-preview { width: 100%; border-radius: 16px; overflow: hidden; background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--seat, #f1c40f) 30%, #1a2b3d), #0a1420 75%); border: 1px solid rgba(255,255,255,0.12); }
+.profile__character { margin: -6px 0 0; text-align: center; font: 400 1.5rem var(--font-title); color: var(--gold-2); }
+.lang-fa .profile__character { font-family: Vazirmatn; font-weight: 700; font-size: 1.15rem; }
+.character-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.character-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); cursor: pointer; transition: 0.15s; }
+.character-card:hover { border-color: var(--seat); transform: translateY(-2px); }
+.character-card.is-active { border-color: var(--seat); background: color-mix(in srgb, var(--seat) 22%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--seat) 45%, transparent); }
+.character-card__icon { font-size: 1.6rem; }
+.character-card__name { font-size: 0.68rem; line-height: 1.2; text-align: center; color: var(--ink-dim); }
+.character-card.is-active .character-card__name { color: var(--ink); font-weight: 700; }
+.arena-picker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.arena-card { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; text-align: start; font-weight: 700; transition: 0.15s; background-size: cover; }
+.arena-card--ship { background: linear-gradient(135deg, rgba(40,26,14,0.9), rgba(22,42,70,0.9)); }
+.arena-card--tavern { background: linear-gradient(135deg, rgba(60,30,12,0.9), rgba(110,50,14,0.85)); }
+.arena-card:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-2px); }
+.arena-card.is-active { border-color: var(--gold); box-shadow: 0 0 20px rgba(232,185,35,0.3); }
+.arena-card:disabled { cursor: default; opacity: 0.75; }
+.arena-card__icon { font-size: 1.8rem; }
+
 /* ------------------------------------------------------------------ settings / howto / credits */
 .settings { display: flex; flex-direction: column; gap: 18px; }
 .setting { display: grid; grid-template-columns: 1fr; gap: 8px; position: relative; }
@@ -335,6 +355,8 @@ button.mini-card:hover { transform: translateY(-6px) scale(1.06); box-shadow: 0 
 .lang-fa .seat-plate { font-family: Vazirmatn, sans-serif; }
 .seat-plate.is-current { box-shadow: 0 0 24px var(--seat), 0 4px 14px rgba(0,0,0,0.5); transform: scale(1.1); }
 .seat-plate.is-offline { opacity: 0.5; }
+.seat-plate { font-size: 13px; padding: 4px 10px 4px 4px; gap: 6px; }
+.seat-plate .seat-plate__avatar { width: 24px; height: 24px; font-size: 14px; }
 .seat-plate__avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,0.12); font-size: 18px; }
 .seat-plate__score { color: var(--gold-2); }
 .pile-badge { padding: 4px 10px; border-radius: 99px; background: rgba(10,22,36,0.85); border: 1px solid var(--gold); color: var(--gold-2); font: 800 14px var(--font-ui); white-space: nowrap; user-select: none; }

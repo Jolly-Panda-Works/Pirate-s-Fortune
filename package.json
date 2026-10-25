@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -k -n server,client -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
-    "dev:server": "node --watch-path=server --watch-path=js server/index.js",
+    "dev:server": "node --watch-path=server --watch-path=js --watch-path=shared server/index.js",
     "dev:client": "vite --config client/vite.config.js",
     "build": "vite build --config client/vite.config.js",
     "start": "node server/index.js",

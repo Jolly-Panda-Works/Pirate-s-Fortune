@@ -1,21 +1,18 @@
 import { useState } from 'react';
 
-import { go } from '../store.js';
+import { appStore, go, useStore } from '../store.js';
 import { useT, formatNumber } from '../i18n.js';
 import { Button, Panel } from '../ui.jsx';
 import { gameStore, playSolo } from '../net.js';
-import { useStore } from '../store.js';
 import { gameConfig } from '../data.js';
-
-const CREW = [
-  { name: 'Blackbeard', avatar: '☠️' },
-  { name: 'Anne Bonny', avatar: '🦜' },
-  { name: 'Calico Jack', avatar: '🦑' },
-];
+import { ArenaPicker } from '../pickers.jsx';
+import { DEFAULT_ARENA } from '../../../shared/roster.js';
 
 export default function Solo() {
   const t = useT();
   const [rivals, setRivals] = useState(1);
+  const [arena, setArena] = useState(DEFAULT_ARENA);
+  const locale = useStore(appStore, (s) => s.settings.locale);
   const connecting = useStore(gameStore, (s) => s.connection === 'connecting');
   const max = gameConfig.players.max - 1;
 
@@ -33,12 +30,13 @@ export default function Solo() {
               onClick={() => setRivals(n)}
             >
               <span className="rival-card__count">{formatNumber(n)}</span>
-              <span className="rival-card__crew">{CREW.slice(0, n).map((c) => c.avatar).join(' ')}</span>
-              <span className="rival-card__names">{CREW.slice(0, n).map((c) => c.name).join(', ')}</span>
+              <span className="rival-card__crew">{'🤖 '.repeat(n).trim()}</span>
             </button>
           ))}
         </div>
-        <Button icon="⛵" variant="gold" className="btn--block" disabled={connecting} onClick={() => playSolo(rivals)}>
+        <h3 className="label">{t('solo.arena')}</h3>
+        <ArenaPicker value={arena} onChange={setArena} locale={locale} />
+        <Button icon="⛵" variant="gold" className="btn--block" disabled={connecting} onClick={() => playSolo(rivals, arena)}>
           {connecting ? t('online.connecting') : t('solo.start')}
         </Button>
       </Panel>

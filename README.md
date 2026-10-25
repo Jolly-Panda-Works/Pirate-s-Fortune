@@ -32,7 +32,10 @@ To build an APK locally you need the Android SDK. Run `npm run android:apk`.
 | `client/` | React Three Fiber client: Drei, Rapier physics, three.quarks particles, post-processing. Full UX with EN/FA and RTL. |
 | `android/` | Capacitor Android project |
 | `docs/` | Game design document and architecture notes |
+| `shared/roster.js` | The 8 sailor characters and the 2 arenas (ship's cabin, tavern). Shared by the server and the client. |
 
 **How the engine is shared across rooms** (`server/engineHost.js`): `gameState.js` holds one state per process. Before each action, the server restores that room's own snapshot, calls `gameManager`, and takes the new snapshot out again. The engine is synchronous, so the calls cannot interleave. Every engine event is recorded as a replay "frame", and the client animates each one on a flat 3D board.
+
+**Sailors and arenas:** players pick their sailor in **Captain Profile**, and the crew sits around the table, reacting to turns, cargo returns and shipwrecks. The arena is chosen in solo setup, or by the host in the lobby. All models are procedural low-poly (`client/src/three/Sailor.jsx`, `Arenas.jsx`). A licensed model pack can replace a character by its roster id.
 
 The previous 2D web build is preserved on the `legacy-main` branch.

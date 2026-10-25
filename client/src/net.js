@@ -76,7 +76,7 @@ export const fxBus = {
 // Game store
 // ---------------------------------------------------------------------------
 
-const EMPTY_ROOM = { roomId: '', mode: '', status: 'idle', isPrivate: false, seats: [], chat: [], gameNumber: 0, mySeatId: '' };
+const EMPTY_ROOM = { roomId: '', mode: '', status: 'idle', arena: 'ship', isPrivate: false, seats: [], chat: [], gameNumber: 0, mySeatId: '' };
 
 export const gameStore = createStore({
   room: EMPTY_ROOM,
@@ -134,8 +134,8 @@ export async function listRooms() {
 // ---------------------------------------------------------------------------
 
 function profilePayload() {
-  const { name, avatar, color } = appStore.get().profile;
-  return { name, avatar, color };
+  const { name, character, color } = appStore.get().profile;
+  return { name, character, color };
 }
 
 async function join(factory, nextScreen) {
@@ -155,8 +155,8 @@ async function join(factory, nextScreen) {
   }
 }
 
-export function playSolo(aiCount) {
-  return join(() => getClient().create('pirate', { mode: 'solo', aiCount, profile: profilePayload() }), 'game');
+export function playSolo(aiCount, arena) {
+  return join(() => getClient().create('pirate', { mode: 'solo', aiCount, arena, profile: profilePayload() }), 'game');
 }
 
 export function resumeSolo() {
@@ -226,6 +226,7 @@ function syncRoom(r, state) {
       roomId: r.roomId,
       mode: json.mode,
       status: json.status,
+      arena: json.arena,
       isPrivate: json.isPrivate,
       seats,
       chat: json.chat ?? [],

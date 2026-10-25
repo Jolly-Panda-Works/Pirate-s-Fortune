@@ -89,8 +89,11 @@ function placeCargo(out, player, centerX, centerZ, scale, stackDir) {
  * @returns {Map<string, {pos:number[], rotY:number, faceUp:boolean, scale:number, zone:string, ownerId?:string}>}
  */
 export function layoutCards(view, mySeatId) {
-  const out = new Map();
-  if (!view) return out;
+  const placed = new Map();
+  // Mid-ability frames can briefly list one card in two zones; the first
+  // zone written (expedition, then lost loot, then cargo) wins.
+  const out = { set: (id, v) => { if (!placed.has(id)) placed.set(id, v); } };
+  if (!view) return placed;
   const { players } = view;
 
   // Expedition: centred rows.
@@ -127,7 +130,7 @@ export function layoutCards(view, mySeatId) {
     placeCargo(out, player, rivalAreaX(i, rivals.length), RIVAL_CARGO_Z, RIVAL_SCALE, 1);
   });
 
-  return out;
+  return placed;
 }
 
 export function deckTopY(count) {
