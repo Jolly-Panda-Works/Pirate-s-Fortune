@@ -17,11 +17,45 @@ import { playSfx } from './audio.js';
 import { isChainAbility } from './data.js';
 
 const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-export const SERVER_URL = import.meta.env.VITE_SERVER_URL
-  ?? (import.meta.env.DEV ? `${proto}://${location.hostname}:2567` : `${proto}://${location.host}`);
-export const HTTP_URL = SERVER_URL.replace(/^ws/, 'http');
 
-const client = new Client(SERVER_URL);
+/** True inside the Android (Capacitor) app, where the page itself is not served by the game server. */
+export const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+
+/** Build-time default: VITE_SERVER_URL, else the dev server, else the host that served the page. */
+export function defaultServerUrl() {
+  if (import.meta.env.VITE_SERVER_URL) return import.meta.env.VITE_SERVER_URL;
+  if (isNativeApp) return '';
+  return import.meta.env.DEV ? `${proto}://${location.hostname}:2567` : `${proto}://${location.host}`;
+}
+
+/** Accepts "192.168.1.5", "192.168.1.5:2567", "http://host:2567" or "ws://…". */
+export function normalizeServerUrl(raw) {
+  let url = String(raw ?? '').trim().replace(/\/+$/, '');
+  if (!url) return '';
+  url = url.replace(/^http(s?):\/\//i, 'ws$1://');
+  if (!/^wss?:\/\//i.test(url)) url = `ws://${url}`;
+  if (!/:\d+$/.test(url.replace(/^wss?:\/\//i, '')) && url.startsWith('ws://')) url += ':2567';
+  return url;
+}
+
+export function serverUrl() {
+  return appStore.get().settings.serverUrl || defaultServerUrl();
+}
+
+function httpUrl() {
+  return serverUrl().replace(/^ws/, 'http');
+}
+
+let client = null;
+let clientUrl = '';
+function getClient() {
+  const url = serverUrl();
+  if (!client || clientUrl !== url) {
+    client = new Client(url);
+    clientUrl = url;
+  }
+  return client;
+}
 
 // ---------------------------------------------------------------------------
 // FX bus — one-shot visual/audio events for the 3D scene.
@@ -68,10 +102,14 @@ export function currentRoom() {
 // ---------------------------------------------------------------------------
 
 export async function checkServer() {
+  if (!serverUrl()) {
+    appStore.set({ serverOnline: false });
+    return false;
+  }
   try {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 2500);
-    const res = await fetch(`${HTTP_URL}/health`, { signal: ctrl.signal });
+    const res = await fetch(`${httpUrl()}/health`, { signal: ctrl.signal });
     clearTimeout(timeout);
     const ok = res.ok;
     appStore.set({ serverOnline: ok });
@@ -84,7 +122,7 @@ export async function checkServer() {
 
 export async function listRooms() {
   try {
-    const res = await fetch(`${HTTP_URL}/rooms`);
+    const res = await fetch(`${httpUrl()}/rooms`);
     return res.ok ? await res.json() : [];
   } catch {
     return [];
@@ -118,25 +156,25 @@ async function join(factory, nextScreen) {
 }
 
 export function playSolo(aiCount) {
-  return join(() => client.create('pirate', { mode: 'solo', aiCount, profile: profilePayload() }), 'game');
+  return join(() => getClient().create('pirate', { mode: 'solo', aiCount, profile: profilePayload() }), 'game');
 }
 
 export function resumeSolo() {
   const save = appStore.get().save;
   if (!save) return Promise.resolve(false);
-  return join(() => client.create('pirate', { mode: 'solo', resume: save, profile: profilePayload() }), 'game');
+  return join(() => getClient().create('pirate', { mode: 'solo', resume: save, profile: profilePayload() }), 'game');
 }
 
 export function quickMatch() {
-  return join(() => client.joinOrCreate('pirate', { mode: 'online', profile: profilePayload() }), 'lobby');
+  return join(() => getClient().joinOrCreate('pirate', { mode: 'online', profile: profilePayload() }), 'lobby');
 }
 
 export function createPrivate() {
-  return join(() => client.create('pirate', { mode: 'online', private: true, profile: profilePayload() }), 'lobby');
+  return join(() => getClient().create('pirate', { mode: 'online', private: true, profile: profilePayload() }), 'lobby');
 }
 
 export function joinByCode(code) {
-  return join(() => client.joinById(code.trim(), { profile: profilePayload() }), 'lobby');
+  return join(() => getClient().joinById(code.trim(), { profile: profilePayload() }), 'lobby');
 }
 
 export async function leaveRoom() {
@@ -206,7 +244,7 @@ async function reconnect(token) {
   for (let attempt = 0; attempt < 8; attempt++) {
     await new Promise((res) => setTimeout(res, 1000 + attempt * 750));
     try {
-      const r = await client.reconnect(token);
+      const r = await getClient().reconnect(token);
       attach(r);
       r.send('sync');
       return;

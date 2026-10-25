@@ -68,6 +68,7 @@ const DEFAULT_SETTINGS = {
   quality: 'high',
   animSpeed: 1,
   shake: true,
+  serverUrl: '',
 };
 
 function readSave() {

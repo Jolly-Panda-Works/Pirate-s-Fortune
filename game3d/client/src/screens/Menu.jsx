@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { appStore, go, useStore } from '../store.js';
 import { useT } from '../i18n.js';
 import { Button } from '../ui.jsx';
-import { checkServer, resumeSolo } from '../net.js';
+import { checkServer, isNativeApp, resumeSolo } from '../net.js';
 
 export default function Menu() {
   const t = useT();
@@ -45,7 +45,8 @@ export default function Menu() {
 
       {online === false && (
         <div className="menu__offline">
-          <span>⚠️ {t('menu.offline')}</span>
+          <span>⚠️ {isNativeApp ? t('menu.offlineApp') : t('menu.offline')}</span>
+          {isNativeApp && <Button variant="ghost" onClick={() => go('settings', { returnTo: 'menu' })}>⚙️</Button>}
           <Button variant="ghost" onClick={retry} disabled={checking}>{t('menu.retry')}</Button>
         </div>
       )}

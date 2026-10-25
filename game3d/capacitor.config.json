@@ -1,0 +1,12 @@
+{
+  "appId": "com.jollypanda.piratesfortune",
+  "appName": "Pirate's Fortune",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

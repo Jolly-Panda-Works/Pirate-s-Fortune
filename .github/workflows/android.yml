@@ -1,0 +1,136 @@
+name: Android build
+
+# Builds the 3D client (game3d/) into an Android APK with Capacitor.
+#  - every push / PR to main: tests + debug APK (downloadable artifact)
+#  - a tag like v2.1.0: also attaches the APKs to a GitHub Release
+#
+# Optional repository configuration (Settings → Secrets and variables → Actions):
+#  Variables: GAME_SERVER_URL           default server baked into the app, e.g. wss://game.example.com
+#                                        (players can always change it in the app's Settings)
+#  Secrets:   ANDROID_KEYSTORE_BASE64   base64 of a release .jks keystore → enables a signed release APK/AAB
+#             ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Engine & server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: game3d/package-lock.json
+
+      - name: Original engine tests (219)
+        run: npm test
+
+      - name: Install game3d dependencies
+        working-directory: game3d
+        run: npm ci
+
+      - name: Server / engine-host tests
+        working-directory: game3d
+        run: npm test
+
+  android:
+    name: Build APK
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      VITE_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: game3d/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Version name
+        working-directory: game3d
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "ANDROID_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "ANDROID_VERSION_NAME=$(node -p "require('./package.json').version")-build.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install dependencies
+        working-directory: game3d
+        run: npm ci
+
+      - name: Build web client and sync into Android project
+        working-directory: game3d
+        run: npm run android:sync
+
+      - name: Decode release keystore
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Assemble debug APK
+        working-directory: game3d/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Assemble signed release APK + AAB
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: game3d/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: Collect outputs
+        run: |
+          mkdir -p out
+          cp game3d/android/app/build/outputs/apk/debug/app-debug.apk "out/PiratesFortune-${ANDROID_VERSION_NAME}-debug.apk"
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            cp game3d/android/app/build/outputs/apk/release/app-release.apk "out/PiratesFortune-${ANDROID_VERSION_NAME}.apk"
+            cp game3d/android/app/build/outputs/bundle/release/app-release.aab "out/PiratesFortune-${ANDROID_VERSION_NAME}.aab"
+          fi
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PiratesFortune-${{ env.ANDROID_VERSION_NAME }}
+          path: out/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
