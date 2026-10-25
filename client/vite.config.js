@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: Number(process.env.PORT ?? 5173),
+    port: Number(process.env.PORT ?? 5177),
     host: true,
     fs: { allow: [repoRoot] },
   },

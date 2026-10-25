@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-- Client: http://localhost:5173
+- Client: http://localhost:5177
 - Game server (Colyseus): ws://localhost:2567 (override with `GAME_PORT`)
 
 Production-style, as a single process: run `npm run build`, then `npm start`. The server then also serves `dist/` on port 2567.
