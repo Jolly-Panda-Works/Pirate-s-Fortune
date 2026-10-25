@@ -73,6 +73,9 @@ jobs:
           cache: gradle
 
       - uses: android-actions/setup-android@v3
+        with:
+          # the default also requests the long-removed 'tools' package, which now fails
+          packages: platform-tools
 
       - name: Version name
         working-directory: game3d
