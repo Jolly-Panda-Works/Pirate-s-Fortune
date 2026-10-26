@@ -69,7 +69,7 @@ function stoneTexture() {
 // Shared props
 // ---------------------------------------------------------------------------
 
-function Lantern({ position, swing = 0.12, intensity = 9, color = '#ffb35c', chain = 2.2 }) {
+function Lantern({ position, swing = 0.12, intensity = 16, color = '#ffc070', chain = 2.2 }) {
   const ref = useRef();
   const light = useRef();
   const offset = useMemo(() => Math.random() * 10, []);
@@ -211,8 +211,8 @@ function Table() {
 // ---------------------------------------------------------------------------
 
 function ShipCabin() {
-  const floorTex = useMemo(() => plankTexture('#7a5230', 10, [6, 6]), []);
-  const wallTex = useMemo(() => plankTexture('#5b3a1e', 12, [5, 2]), []);
+  const floorTex = useMemo(() => plankTexture('#9a6a3e', 10, [6, 6]), []);
+  const wallTex = useMemo(() => plankTexture('#7a5230', 12, [5, 2]), []);
   const room = useRef();
   useFrame(({ clock }) => {
     // the ship rolls gently on the swell (the table is bolted down and stays still)
@@ -220,9 +220,9 @@ function ShipCabin() {
   });
   return (
     <group>
-      <color attach="background" args={['#0d0805']} />
-      <fog attach="fog" args={['#120b06', 26, 60]} />
-      <ambientLight intensity={0.25} color="#ffcf9a" />
+      <color attach="background" args={['#2a1c10']} />
+      <fog attach="fog" args={['#3a2816', 34, 80]} />
+      <ambientLight intensity={0.5} color="#ffdcae" />
       <group ref={room}>
         <mesh rotation-x={-Math.PI / 2} position-y={FLOOR_Y} receiveShadow>
           <planeGeometry args={[46, 40]} />
@@ -278,7 +278,7 @@ function ShipCabin() {
         <Lantern position={[-14, FLOOR_Y + 9.6, -2]} chain={1.2} intensity={6} />
         <Lantern position={[14, FLOOR_Y + 9.6, -2]} chain={1.2} intensity={6} />
         {/* moonlight through the stern windows */}
-        <directionalLight position={[0, 6, -14]} intensity={0.35} color="#7aa7ff" />
+        <directionalLight position={[0, 6, -14]} intensity={0.6} color="#9cc0ff" />
       </group>
     </group>
   );
@@ -290,7 +290,7 @@ function ShipCabin() {
 
 function Tavern() {
   const floorTex = useMemo(() => stoneTexture(), []);
-  const wallTex = useMemo(() => plankTexture('#6a4526', 10, [6, 2]), []);
+  const wallTex = useMemo(() => plankTexture('#8a5d34', 10, [6, 2]), []);
   const bottles = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
     x: -6 + i * 0.9,
     color: ['#1e8449', '#7d3c98', '#a04000', '#1f618d', '#b7950b'][i % 5],
@@ -298,9 +298,9 @@ function Tavern() {
   })), []);
   return (
     <group>
-      <color attach="background" args={['#0c0705']} />
-      <fog attach="fog" args={['#140b06', 26, 60]} />
-      <ambientLight intensity={0.28} color="#ffcf9a" />
+      <color attach="background" args={['#2c1d10']} />
+      <fog attach="fog" args={['#3c2a18', 34, 80]} />
+      <ambientLight intensity={0.55} color="#ffdcae" />
       <mesh rotation-x={-Math.PI / 2} position-y={FLOOR_Y} receiveShadow>
         <planeGeometry args={[46, 40]} />
         <meshStandardMaterial map={floorTex} roughness={0.95} />
@@ -388,7 +388,7 @@ function Tavern() {
           const a = (i / 6) * Math.PI * 2;
           return <Candle key={i} position={[Math.cos(a) * 1.6, -3.15, Math.sin(a) * 1.6]} scale={0.7} />;
         })}
-        <pointLight position-y={-2.8} color="#ffb35c" intensity={14} distance={18} decay={1.5} />
+        <pointLight position-y={-2.8} color="#ffc070" intensity={26} distance={22} decay={1.4} />
       </group>
     </group>
   );

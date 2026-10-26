@@ -10,6 +10,8 @@
 
 import { Client } from 'colyseus.js';
 
+import { createLocalSoloRoom } from './localRoom.js';
+
 import { appStore, createStore, go, recordGame, setSave, toast } from './store.js';
 import { t, cardTypeName } from './i18n.js';
 import { defOf, scoreOf } from './data.js';
@@ -155,14 +157,16 @@ async function join(factory, nextScreen) {
   }
 }
 
+// Solo games run the rules engine inside the app (localRoom.js): no server needed,
+// so they work offline on Android too. Multiplayer below uses the Colyseus server.
 export function playSolo(aiCount, arena) {
-  return join(() => getClient().create('pirate', { mode: 'solo', aiCount, arena, profile: profilePayload() }), 'game');
+  return join(async () => createLocalSoloRoom({ aiCount, arena, profile: profilePayload() }), 'game');
 }
 
 export function resumeSolo() {
   const save = appStore.get().save;
   if (!save) return Promise.resolve(false);
-  return join(() => getClient().create('pirate', { mode: 'solo', resume: save, profile: profilePayload() }), 'game');
+  return join(async () => createLocalSoloRoom({ resume: save, profile: profilePayload() }), 'game');
 }
 
 export function quickMatch() {

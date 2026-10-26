@@ -8,7 +8,7 @@ export default function Credits() {
     <div className="screen-center">
       <Panel title={t('credits.title')} onBack={() => go('menu')}>
         <div className="credits">
-          <div className="credits__panda">🐼</div>
+          <img className="credits__logo" src={`${import.meta.env.BASE_URL}brand/jolly-panda-light.png`} alt="Jolly Panda Studio" />
           {t('credits.lines').map(([role, who]) => (
             <div key={role} className="credits__line">
               <span className="muted">{role}</span>

@@ -43,7 +43,7 @@ export default function Splash() {
     <div className="splash">
       {stage === 0 && (
         <div className="splash__studio">
-          <div className="splash__panda">🐼</div>
+          <img className="splash__studio-logo" src={`${import.meta.env.BASE_URL}brand/jolly-panda-light.png`} alt="Jolly Panda Studio" />
           <p>{t('splash.presents')}</p>
         </div>
       )}

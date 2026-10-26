@@ -88,6 +88,7 @@ export default function Boot() {
 
   return (
     <div className="boot">
+      <img className="boot__studio" src={`${import.meta.env.BASE_URL}brand/jolly-panda-light.png`} alt="Jolly Panda Studio" />
       <div className="boot__logo">
         <span className="boot__skull">☠️</span>
         <h1 className="title-font">Pirate&apos;s Fortune</h1>

@@ -41,6 +41,7 @@ function CameraRig({ shakeRef }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const base = useRef(new THREE.Vector3());
+  const target = useRef(LOOK_AT.clone());
   const trauma = useRef(0);
 
   useEffect(() => {
@@ -52,9 +53,13 @@ function CameraRig({ shakeRef }) {
     const fit = Math.max(1, 1.7 / aspect);
     camera.fov = 42;
     // behind and above the local player's own seat (bottom side)
-    base.current.set(0, 17.4 * fit, 12.6 * fit);
+    // short phone screens: back off a touch and aim nearer the player so the
+    // action bar at the bottom doesn't cover their own cargo row
+    const compact = size.height < 520;
+    base.current.set(0, 17.4 * fit * (compact ? 1.06 : 1), 12.6 * fit * (compact ? 1.06 : 1));
+    target.current.set(0, 0, compact ? 1.5 : LOOK_AT.z);
     camera.position.copy(base.current);
-    camera.lookAt(LOOK_AT);
+    camera.lookAt(target.current);
     camera.updateProjectionMatrix();
   }, [camera, size.width, size.height]);
 
@@ -64,7 +69,7 @@ function CameraRig({ shakeRef }) {
     const s = trauma.current * trauma.current * 0.35;
     const t = clock.elapsedTime * 40;
     camera.position.set(base.current.x + Math.sin(t) * s, base.current.y, base.current.z + Math.cos(t * 1.3) * s);
-    camera.lookAt(LOOK_AT);
+    camera.lookAt(target.current);
   });
   return null;
 }
@@ -307,18 +312,21 @@ export default function GameScene() {
   return (
     <>
       <Environment resolution={128} frames={1}>
-        <Lightformer intensity={0.6} color="#ffe2c4" position={[8, 8, -6]} scale={[12, 4, 1]} />
-        <Lightformer intensity={0.35} color="#bcd4ff" position={[-8, 8, 6]} scale={[10, 10, 1]} />
+        <Lightformer intensity={1.1} color="#ffe8cc" position={[8, 8, -6]} scale={[12, 4, 1]} />
+        <Lightformer intensity={0.7} color="#cfe0ff" position={[-8, 8, 6]} scale={[10, 10, 1]} />
+        <Lightformer intensity={0.6} color="#fff3e0" rotation-x={Math.PI / 2} position={[0, 12, 0]} scale={[24, 24, 1]} />
       </Environment>
-      <hemisphereLight args={['#ffe2c0', '#1a120b', 0.25]} />
+      <hemisphereLight args={['#fff1dc', '#4a3624', 0.85]} />
+      <ambientLight intensity={0.35} color="#ffe9d0" />
       {/* warm fill so the crew's faces read from the player's seat */}
-      <pointLight position={[0, 7, 1]} intensity={16} distance={22} decay={1.4} color="#ffd2a1" />
-      <directionalLight position={[0, 6, 14]} intensity={0.45} color="#ffe6c8" />
+      <pointLight position={[0, 7, 1]} intensity={32} distance={26} decay={1.3} color="#ffdcb0" />
+      <directionalLight position={[0, 9, 14]} intensity={0.9} color="#fff0dc" />
+      <directionalLight position={[-10, 8, -6]} intensity={0.45} color="#cfe0ff" />
       <spotLight
         position={[0, 14, 2]}
         angle={0.62}
         penumbra={0.6}
-        intensity={95}
+        intensity={140}
         decay={1.6}
         color="#ffe6c4"
         castShadow={quality !== 'low'}

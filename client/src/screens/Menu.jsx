@@ -33,9 +33,9 @@ export default function Menu() {
 
       <nav className="menu__nav">
         {save && (
-          <Button icon="🧭" variant="gold" disabled={!online} onClick={() => resumeSolo()}>{t('menu.continue')}</Button>
+          <Button icon="🧭" variant="gold" onClick={() => resumeSolo()}>{t('menu.continue')}</Button>
         )}
-        <Button icon="⚔️" disabled={!online} onClick={() => go('solo')}>{t('menu.solo')}</Button>
+        <Button icon="⚔️" onClick={() => go('solo')}>{t('menu.solo')}</Button>
         <Button icon="🌊" disabled={!online} onClick={() => go('online')}>{t('menu.online')}</Button>
         <Button icon="☠️" variant="secondary" onClick={() => go('profile')}>{t('menu.profile')}</Button>
         <Button icon="📜" variant="secondary" onClick={() => go('howto', { returnTo: 'menu' })}>{t('menu.howTo')}</Button>
@@ -45,11 +45,12 @@ export default function Menu() {
 
       {online === false && (
         <div className="menu__offline">
-          <span>⚠️ {isNativeApp ? t('menu.offlineApp') : t('menu.offline')}</span>
+          <span>ℹ️ {isNativeApp ? t('menu.offlineApp') : t('menu.offline')}</span>
           {isNativeApp && <Button variant="ghost" onClick={() => go('settings', { returnTo: 'menu' })}>⚙️</Button>}
           <Button variant="ghost" onClick={retry} disabled={checking}>{t('menu.retry')}</Button>
         </div>
       )}
+      <img className="menu__studio" src={`${import.meta.env.BASE_URL}brand/jolly-panda-light.png`} alt="Jolly Panda Studio" />
       <footer className="menu__footer">{t('menu.version', { version: __APP_VERSION__ })}</footer>
     </div>
   );
