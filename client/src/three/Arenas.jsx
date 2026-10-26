@@ -193,13 +193,13 @@ function Table() {
   const wood = useMemo(() => plankTexture('#6b3e1e', 6, [2, 1]), []);
   return (
     <group>
-      {[[-7.6, -4.6], [7.6, -4.6], [-7.6, 4.6], [7.6, 4.6]].map(([x, z]) => (
+      {[[-8.4, -5.4], [8.4, -5.4], [-8.4, 5.4], [8.4, 5.4]].map(([x, z]) => (
         <mesh key={`${x}${z}`} material={m('#4a2a12')} position={[x, (FLOOR_Y - 0.3) / 2, z]} castShadow>
           <cylinderGeometry args={[0.32, 0.24, -FLOOR_Y - 0.3, 8]} />
         </mesh>
       ))}
       <mesh position-y={-0.55} castShadow receiveShadow>
-        <boxGeometry args={[18.6, 0.5, 12.2]} />
+        <boxGeometry args={[19.6, 0.5, 13.6]} />
         <meshStandardMaterial map={wood} roughness={0.8} />
       </mesh>
     </group>
@@ -400,8 +400,8 @@ export default function Arena({ id }) {
       <Table />
       {id === 'tavern' ? <Tavern /> : <ShipCabin />}
       {/* candles on the table corners */}
-      <Candle position={[-8.6, 0, 5.4]} scale={0.8} />
-      <Candle position={[8.6, 0, 5.4]} scale={0.8} />
+      <Candle position={[-9.15, 0, -6.15]} scale={0.7} />
+      <Candle position={[9.15, 0, -6.15]} scale={0.7} />
     </>
   );
 }

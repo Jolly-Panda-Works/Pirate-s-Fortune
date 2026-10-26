@@ -11,7 +11,7 @@ export default function Effects({ quality, dof }) {
   if (quality === 'low') return null;
   const high = quality === 'high';
   const passes = [
-    <Bloom key="bloom" mipmapBlur intensity={high ? 0.9 : 0.6} luminanceThreshold={0.85} luminanceSmoothing={0.2} />,
+    <Bloom key="bloom" mipmapBlur intensity={high ? 0.7 : 0.5} luminanceThreshold={0.96} luminanceSmoothing={0.15} />,
   ];
   if (high && dof) passes.push(<DepthOfField key="dof" {...dof} />);
   if (high) passes.push(<Noise key="noise" premultiply opacity={0.35} />);

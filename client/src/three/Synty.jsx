@@ -24,7 +24,13 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { appStore, useStore } from '../store.js';
 
 const BASE = `${import.meta.env.BASE_URL}models/`;
-export const MODEL_URLS = { characters: '', props: '', ship: '' };
+const KEYS = ['characters', 'props', 'ship'];
+/** Resolved model URLs; kept in the app store so they survive module reloads. */
+export const MODEL_URLS = new Proxy({}, {
+  get: (_, key) => appStore.get().modelUrls?.[key] ?? '',
+  ownKeys: () => KEYS,
+  getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
+});
 
 /**
  * Looks for client/public/models/manifest.json (written by the asset build).
@@ -36,8 +42,8 @@ export async function detectModels() {
     const res = await fetch(`${BASE}manifest.json`, { cache: 'no-store' });
     const manifest = res.ok ? await res.json() : null;
     if (!manifest?.version) throw new Error('no manifest');
-    for (const key of Object.keys(MODEL_URLS)) MODEL_URLS[key] = `${BASE}${key}.glb?v=${manifest.version}`;
-    appStore.set({ modelsAvailable: true });
+    const modelUrls = Object.fromEntries(KEYS.map((key) => [key, `${BASE}${key}.glb?v=${manifest.version}`]));
+    appStore.set({ modelsAvailable: true, modelUrls });
     return true;
   } catch {
     appStore.set({ modelsAvailable: false });
@@ -140,27 +146,48 @@ function SyntyProp({ name, position, rotation, scale, shadows = true, ...rest })
   );
 }
 
-/** The pack's galleon, normalised to `length` world units along its keel. */
-export function Galleon({ length = 12, ...rest }) {
+/**
+ * The pack's galleon, normalised to `length` world units along its keel.
+ * The group origin sits on the waterline (≈40% up the hull), so a parent
+ * can simply follow the sea surface. `children` are placed on the quarter-
+ * deck near the stern (e.g. the player's captain).
+ */
+export function Galleon({ length = 12, children, ...rest }) {
   const { scene } = useGLTF(MODEL_URLS.ship);
-  const object = useMemo(() => {
+  const { object, deck } = useMemo(() => {
     const o = prepare(scene.clone(true));
+    o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); m.material.side = THREE.DoubleSide; } });
     const box = new THREE.Box3().setFromObject(o);
     const size = box.getSize(new THREE.Vector3());
+    const alongZ = size.z > size.x;
     const s = length / Math.max(size.x, size.z);
     o.scale.multiplyScalar(s);
-    const b2 = new THREE.Box3().setFromObject(o);
-    const c = b2.getCenter(new THREE.Vector3());
-    o.position.set(-c.x, -b2.min.y, -c.z);
+    o.updateMatrixWorld(true);
+    let hullMesh = null;
+    // the hull is by far the densest mesh (node names don't survive optimisation)
+    o.traverse((m) => {
+      if (m.isMesh && (!hullMesh || m.geometry.attributes.position.count > hullMesh.geometry.attributes.position.count)) hullMesh = m;
+    });
+    const all = new THREE.Box3().setFromObject(o);
+    // the hull's own geometry only — masts and sails are its children
+    const hull = hullMesh
+      ? new THREE.Box3().setFromBufferAttribute(hullMesh.geometry.attributes.position).applyMatrix4(hullMesh.matrixWorld)
+      : all;
+    const c = hull.getCenter(new THREE.Vector3());
+    const hullH = hull.max.y - hull.min.y;
+    const waterline = hull.min.y + hullH * 0.4;
+    o.position.set(-c.x, -waterline, -c.z);
     // keel along x like the procedural ship it replaces
     const wrap = new THREE.Group();
     wrap.add(o);
-    if (size.z > size.x) wrap.rotation.y = Math.PI / 2;
-    return wrap;
+    if (alongZ) wrap.rotation.y = Math.PI / 2;
+    const half = (alongZ ? hull.max.z - hull.min.z : hull.max.x - hull.min.x) / 2;
+    return { object: wrap, deck: { y: hull.max.y - waterline - hullH * 0.08, x: -half * 0.62 } };
   }, [scene, length]);
   return (
     <group {...rest}>
       <primitive object={object} />
+      {children && <group position={[deck.x, deck.y, 0]}>{children}</group>}
     </group>
   );
 }
@@ -193,7 +220,33 @@ const v = (x, y, z) => new THREE.Vector3(x, y, z).normalize();
  * Target directions in the sailor's frame (+x = the sailor's left, +y up,
  * +z toward the table). `L`/`R` arm entries are mirrored on x.
  */
+const SEATED_LEGS = { upperLeg: v(0.08, -0.05, 1), lowerLeg: v(0, -1, 0.08), foot: v(0, -0.25, 1) };
+const STANDING_LEGS = { upperLeg: v(0.06, -1, 0.02), lowerLeg: v(0, -1, -0.02), foot: v(0, -0.3, 1) };
+
 const POSES = {
+  // profile portrait: sits up straight, hands on the knees, faces the camera
+  portrait: {
+    spine: v(0, 1, 0.02), neck: v(0, 1, 0),
+    ...SEATED_LEGS,
+    upperArm: v(0.3, -0.92, 0.28), foreArm: v(-0.08, -0.25, 1),
+  },
+  wave: {
+    spine: v(0, 1, -0.02), neck: v(0, 1, -0.02),
+    ...SEATED_LEGS,
+    upperArm: v(0.3, -0.92, 0.28), foreArm: v(-0.08, -0.25, 1),
+    rUpperArm: v(-0.82, 0.45, 0.35), rForeArm: v(-0.12, 1, 0.12),
+  },
+  stand: {
+    spine: v(0, 1, 0), neck: v(0, 1, 0.04),
+    ...STANDING_LEGS,
+    upperArm: v(0.32, -0.95, 0.05), foreArm: v(-0.35, -0.35, 0.85),
+  },
+  standWave: {
+    spine: v(0, 1, -0.02), neck: v(0, 1, -0.03),
+    ...STANDING_LEGS,
+    upperArm: v(0.32, -0.95, 0.05), foreArm: v(-0.35, -0.35, 0.85),
+    rUpperArm: v(-0.82, 0.45, 0.35), rForeArm: v(-0.12, 1, 0.12),
+  },
   idle: {
     spine: v(0, 1, 0.16), neck: v(0, 1, 0.22),
     upperLeg: v(0.08, -0.05, 1), lowerLeg: v(0, -1, 0.08), foot: v(0, -0.25, 1),
@@ -263,7 +316,7 @@ export function useCharacterModels() {
  * Seated Synty character. Same contract as the procedural <Sailor>:
  * faces +z, origin at table-top height over the middle of the seat.
  */
-export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0, 0, 0], scale = 1, seed = 0, showChair = true }) {
+export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0, 0, 0], scale = 1, seed = 0, showChair = true, standing = false }) {
   const { scene } = useCharacterModels();
   const frame = useRef();
 
@@ -293,12 +346,15 @@ export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0
     const height = (head.y - footY) * 1.18 || 1.8; // head bone sits ~85% up the body
     const s = (1.82 / height) * WORLD_SCALE; // every character ~1.82 m tall
     const headRest = bones.Head.quaternion.clone();
-    return { rig: { root, mesh, bones, headRest }, placement: { s, yaw, hipsY: hips.y - footY + 0.08 * (height / 1.82) } };
+    // the bind root's origin is at the soles, so hips.y is the hip height above the floor
+    return { rig: { root, mesh, bones, headRest }, placement: { s, yaw, hipsY: hips.y } };
   }, [scene, character.model]);
 
   const dirs = useRef(new Map());
   const phase = useMemo(() => seed * 1.37, [seed]);
-  const SEAT_Y = -3.2 + 0.47 * WORLD_SCALE; // chair seat height in world units
+  const SEAT_TOP = -3.2 + 0.49 * 1.05 * WORLD_SCALE; // top of the (scaled) stool
+  // the hip joint sits ~11 cm above what the sailor is sitting on
+  const modelY = standing ? 0 : SEAT_TOP + 0.11 * WORLD_SCALE - placement.hipsY * placement.s;
 
   useLayoutEffect(() => {
     dirs.current.clear();
@@ -323,6 +379,7 @@ export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0
       if (boneName.startsWith('Spine')) local.z += Math.sin(t * 1.6) * 0.02;
       if (mood === 'cheer' && boneName.startsWith('Elbow')) local.x += Math.sin(t * 9 + (boneName.endsWith('L') ? 0 : 1.5)) * 0.35;
       if (mood === 'thinking' && boneName === 'Elbow_R') local.z += Math.sin(t * 5) * 0.08;
+      if ((mood === 'wave' || mood === 'standWave') && boneName === 'Elbow_R') local.x += Math.sin(t * 8) * 0.45;
       local.normalize();
       const cur = dirs.current.get(boneName) ?? local.clone();
       cur.lerp(local, k).normalize();
@@ -334,7 +391,8 @@ export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0
     const head = rig.bones.Head;
     if (head) {
       head.quaternion.copy(rig.headRest); // reset, so the yaw below never accumulates
-      const yaw = mood === 'idle' ? THREE.MathUtils.clamp(lookX, -0.6, 0.6) + Math.sin(t * 0.45) * 0.18 : 0;
+      const yaw = mood === 'idle' ? THREE.MathUtils.clamp(lookX, -0.6, 0.6) + Math.sin(t * 0.45) * 0.18
+        : mood === 'portrait' || mood === 'stand' ? Math.sin(t * 0.6) * 0.08 : 0;
       head.rotateOnWorldAxis(tmpA.set(0, 1, 0).applyQuaternion(qFrame), yaw);
     }
     f.position.y = mood === 'cheer' ? Math.abs(Math.sin(t * 9)) * 0.12 : 0;
@@ -342,10 +400,10 @@ export function SyntySailor({ character, mood = 'idle', lookX = 0, position = [0
 
   return (
     <group position={position} scale={scale}>
-      {showChair && <Prop name="SM_Prop_Stool_01" position={[0, -3.2, -0.25]} scale={1.05} />}
+      {showChair && !standing && <Prop name="SM_Prop_Stool_01" position={[0, -3.2, -0.15]} scale={1.05} />}
       <group ref={frame}>
-        {/* bind-pose model: turn toes to +z, scale to ~1.82 m, drop hips onto the seat */}
-        <group rotation-y={-placement.yaw} scale={placement.s} position-y={SEAT_Y - placement.hipsY * placement.s + 0.1}>
+        {/* bind-pose model: turn toes to +z, scale to ~1.82 m, hips onto the seat (or feet on the deck) */}
+        <group rotation-y={-placement.yaw} scale={placement.s} position-y={modelY}>
           <primitive object={rig.root} />
         </group>
       </group>

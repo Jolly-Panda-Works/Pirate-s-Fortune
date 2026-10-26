@@ -24,8 +24,9 @@ export default function Card3D({ card, target, spawn, locale, selectable, onSele
   const def = defOf(card);
 
   const materials = useMemo(() => {
-    const front = new THREE.MeshStandardMaterial({ map: getFaceTexture(card.defId, locale), roughness: 0.55, metalness: 0.05 });
-    const back = new THREE.MeshStandardMaterial({ map: getBackTexture(), roughness: 0.5, metalness: 0.15 });
+    // matte paper: no glare from the lanterns and spot light
+    const front = new THREE.MeshStandardMaterial({ map: getFaceTexture(card.defId, locale), roughness: 0.92, metalness: 0, envMapIntensity: 0.35 });
+    const back = new THREE.MeshStandardMaterial({ map: getBackTexture(), roughness: 0.85, metalness: 0, envMapIntensity: 0.35 });
     // BoxGeometry face order: +x, -x, +y, -y, +z, -z
     return [sideMaterial, sideMaterial, front, back, sideMaterial, sideMaterial];
   }, [card.defId, locale]);

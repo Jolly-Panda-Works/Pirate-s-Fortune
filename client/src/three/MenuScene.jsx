@@ -3,14 +3,15 @@
  * floating treasure chest and a slowly orbiting camera.
  */
 
-import { Suspense, useRef } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Sky, Environment, Lightformer, Float, Sparkles, Stars } from '@react-three/drei';
 
 import Ocean from './Ocean.jsx';
 import Ship from './Ship.jsx';
 import { waveHeight } from './Ocean.jsx';
-import { Galleon, ModelBoundary, Prop, useModelsAvailable } from './Synty.jsx';
+import { Galleon, ModelBoundary, Prop, SyntySailor, useModelsAvailable } from './Synty.jsx';
+import { characterById } from '../../../shared/roster.js';
 import Effects from './Effects.jsx';
 import { ParticleProvider } from './Particles.jsx';
 import { appStore, useStore } from '../store.js';
@@ -26,12 +27,39 @@ function OrbitCam({ variant }) {
 }
 
 /** The Synty galleon riding the swell (procedural ship while it loads). */
-function SeaGalleon({ position, rotation = 0, length }) {
+/** The player's chosen sailor, standing on deck as the ship's captain. */
+function Captain() {
+  const characterId = useStore(appStore, (s) => s.profile.character);
+  const [waving, setWaving] = useState(false);
+  useEffect(() => {
+    let timer;
+    const loop = (w) => {
+      setWaving(w);
+      timer = setTimeout(() => loop(!w), w ? 2400 : 5000 + Math.random() * 3000);
+    };
+    timer = setTimeout(() => loop(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <SyntySailor
+      character={characterById(characterId)}
+      standing
+      mood={waving ? 'standWave' : 'stand'}
+      scale={0.24}
+      showChair={false}
+    />
+  );
+}
+
+function SeaGalleon({ position, rotation = 0, length, captain = false }) {
   const ref = useRef();
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const t = clock.elapsedTime;
-    ref.current.position.y = position[1] + waveHeight(position[0], position[2], t) * 0.6 - length * 0.06;
+    // waveHeight() is the sea surface in world space; the Synty hull's deep
+    // keel and rudder sit well below the 40% waterline Galleon assumes, so
+    // ride ~1.5 units higher for the hull to read as afloat.
+    ref.current.position.y = waveHeight(position[0], position[2], t) + 1.5;
     ref.current.rotation.z = Math.sin(t * 0.7) * 0.035;
     ref.current.rotation.x = Math.sin(t * 0.55 + 1) * 0.025;
   });
@@ -42,7 +70,7 @@ function SeaGalleon({ position, rotation = 0, length }) {
     <ModelBoundary fallback={fallback}>
       <Suspense fallback={fallback}>
         <group ref={ref} position={position} rotation-y={rotation}>
-          <Galleon length={length} />
+          <Galleon length={length}>{captain ? <Captain /> : null}</Galleon>
         </group>
       </Suspense>
     </ModelBoundary>
@@ -124,7 +152,7 @@ export default function MenuScene({ variant = 'menu' }) {
       <directionalLight position={[20, 12, -30]} intensity={2.6} color="#ffcf9a" castShadow={quality !== 'low'} />
       <ParticleProvider>
         <Ocean sunDirection={[0.35, 0.08, -0.95]} />
-        <SeaGalleon position={[0, -1.2, 0]} rotation={0.3} length={13} />
+        <SeaGalleon position={[0, -1.2, -3]} rotation={0.3} length={10.5} captain />
         <SeaGalleon position={[-46, -1.2, -55]} rotation={2.2} length={10} />
         <MenuChest />
       </ParticleProvider>

@@ -1,10 +1,12 @@
 /**
  * Pure layout: engine public view -> where every card sits on the board.
  *
- * A flat, rectangular board seen from a fixed camera; no card is ever
- * rotated. Rivals' cargo runs along the top edge, the local player's
- * cargo along the bottom, the Treasure Deck and Lost Loot sit at the
- * left and right, and the current expedition is laid out in the middle.
+ * A rectangular table with one player per side (the game has at most 4):
+ * the local player at the bottom (nearest the camera), rivals clockwise on
+ * the left, top and right. Each player's Ship Cargo lies along their own
+ * edge; the Treasure Deck and Lost Loot sit above the expedition in the
+ * middle. Cards are never rotated, so everything reads from the player's
+ * seat.
  */
 
 import { defOf, TYPE_ORDER } from '../data.js';
@@ -14,50 +16,74 @@ export const CARD_D = 1.12;
 export const CARD_T = 0.018;
 export const TABLE_Y = 0;
 
-export const BOARD_W = 17;
-export const BOARD_D = 10.6;
+export const BOARD_W = 18;
+export const BOARD_D = 12;
 
-export const DECK_POS = [-6.6, TABLE_Y, -0.2];
-export const LOST_POS = [6.6, TABLE_Y, -0.2];
-export const EXPEDITION_Z = -0.2;
-export const EXPEDITION_W = 9.6;
-export const MY_CARGO_Z = 3.45;
-export const RIVAL_CARGO_Z = -3.55;
-export const RIVAL_LABEL_Z = -4.85;
-export const MY_SCALE = 0.8;
-export const RIVAL_SCALE = 0.6;
+export const DECK_POS = [-4.7, TABLE_Y, -2.35];
+export const LOST_POS = [4.7, TABLE_Y, -2.35];
+export const EXPEDITION_Z = 0;
+export const EXPEDITION_W = 8.2;
 
-const EXPEDITION_PER_ROW = 9;
-const EXPEDITION_STEP = CARD_W + 0.2;
+/** Distance from the board edge to where a sailor sits. */
+const SEAT_OFFSET = 1.55;
 
-/** Rivals in seat order after the local player, so turn order reads left → right. */
-export function rivalsOf(players, mySeatId) {
+const EXPEDITION_PER_ROW = 7;
+const EXPEDITION_STEP = CARD_W + 0.24;
+
+/**
+ * Per side: cargo zone centre/size, card scale, how cards stack, and where
+ * that side's sailor sits (position + yaw so they face the table).
+ */
+export const SIDES = {
+  bottom: {
+    zone: { x: 0, z: 4.55, w: 12, d: 1.9 }, scale: 0.72, axis: 'row', stack: [0, -1],
+    // a little further back than rivals so your own hat never hides your cargo
+    seat: { pos: [0, 0, BOARD_D / 2 + SEAT_OFFSET + 1.5], yaw: Math.PI },
+  },
+  top: {
+    zone: { x: 0, z: -4.55, w: 12, d: 1.8 }, scale: 0.6, axis: 'row', stack: [0, 1],
+    seat: { pos: [0, 0, -BOARD_D / 2 - SEAT_OFFSET], yaw: 0 },
+  },
+  left: {
+    zone: { x: -7.45, z: 0.1, w: 2.6, d: 7.6 }, scale: 0.55, axis: 'column', stack: [1, 0],
+    seat: { pos: [-BOARD_W / 2 - SEAT_OFFSET, 0, 0], yaw: Math.PI / 2 },
+  },
+  right: {
+    zone: { x: 7.45, z: 0.1, w: 2.6, d: 7.6 }, scale: 0.55, axis: 'column', stack: [-1, 0],
+    seat: { pos: [BOARD_W / 2 + SEAT_OFFSET, 0, 0], yaw: -Math.PI / 2 },
+  },
+};
+
+const RIVAL_SIDES = {
+  1: ['top'],
+  2: ['left', 'right'],
+  3: ['left', 'top', 'right'],
+};
+
+/**
+ * Which side every player sits on. The local player is always at the
+ * bottom; rivals follow clockwise in turn order. A spectator sees the
+ * first player at the bottom.
+ * @returns {Array<{player: object, side: string}>}
+ */
+export function seatsOf(players, mySeatId) {
+  if (!players.length) return [];
   const myIndex = Math.max(0, players.findIndex((p) => p.id === mySeatId));
   const ordered = [];
-  for (let i = 1; i < players.length; i++) ordered.push(players[(myIndex + i) % players.length]);
-  return ordered;
-}
-
-/** Centre x of each rival's area along the top edge. */
-export function rivalAreaX(index, count) {
-  const usable = BOARD_W - 1.4;
-  const w = usable / Math.max(count, 1);
-  return -usable / 2 + w * (index + 0.5);
-}
-
-export function rivalAreaWidth(count) {
-  return (BOARD_W - 1.4) / Math.max(count, 1) - 0.4;
+  for (let i = 0; i < players.length; i++) ordered.push(players[(myIndex + i) % players.length]);
+  const rivalSides = RIVAL_SIDES[ordered.length - 1] ?? [];
+  return ordered.map((player, i) => ({ player, side: i === 0 ? 'bottom' : rivalSides[i - 1] }));
 }
 
 /** Where a player's cargo sits — used for coin bursts. */
 export function anchorFor(players, mySeatId, playerId) {
-  if (playerId === mySeatId) return [0, TABLE_Y, MY_CARGO_Z];
-  const rivals = rivalsOf(players, mySeatId);
-  const i = rivals.findIndex((p) => p.id === playerId);
-  return [rivalAreaX(Math.max(i, 0), rivals.length), TABLE_Y, RIVAL_CARGO_Z];
+  const seat = seatsOf(players, mySeatId).find((s) => s.player.id === playerId);
+  const zone = SIDES[seat?.side ?? 'bottom'].zone;
+  return [zone.x, TABLE_Y, zone.z];
 }
 
-function placeCargo(out, player, centerX, centerZ, scale, stackDir) {
+function placeCargo(out, player, side) {
+  const { zone, scale, axis, stack } = SIDES[side];
   const byType = new Map();
   for (const card of player.shipCargo) {
     const type = defOf(card)?.type ?? 'goldCoin';
@@ -65,16 +91,17 @@ function placeCargo(out, player, centerX, centerZ, scale, stackDir) {
     byType.get(type).push(card);
   }
   const types = TYPE_ORDER.filter((t) => byType.has(t));
-  const colStep = CARD_W * scale + 0.16;
-  types.forEach((type, col) => {
+  const along = axis === 'row' ? CARD_W * scale + 0.16 : CARD_D * scale + 0.08;
+  types.forEach((type, i) => {
     const cards = byType.get(type).sort((a, b) => (defOf(a)?.value ?? 0) - (defOf(b)?.value ?? 0));
+    const offset = (i - (types.length - 1) / 2) * along;
     cards.forEach((card, k) => {
+      // same-type cards overlap toward the table centre, values still visible
+      const shift = k * 0.34 * scale;
+      const x = axis === 'row' ? zone.x + offset + stack[0] * shift : zone.x + stack[0] * (shift - 0.25 * scale);
+      const z = axis === 'row' ? zone.z + stack[1] * shift : zone.z + offset;
       out.set(card.instanceId, {
-        pos: [
-          centerX + (col - (types.length - 1) / 2) * colStep,
-          TABLE_Y + CARD_T / 2 + k * CARD_T * 1.2,
-          centerZ + stackDir * k * 0.34 * scale,
-        ],
+        pos: [x, TABLE_Y + CARD_T / 2 + k * CARD_T * 1.2, z],
         rotY: 0,
         faceUp: true,
         scale,
@@ -94,7 +121,6 @@ export function layoutCards(view, mySeatId) {
   // zone written (expedition, then lost loot, then cargo) wins.
   const out = { set: (id, v) => { if (!placed.has(id)) placed.set(id, v); } };
   if (!view) return placed;
-  const { players } = view;
 
   // Expedition: centred rows.
   const exp = view.expeditionArea;
@@ -122,14 +148,7 @@ export function layoutCards(view, mySeatId) {
     });
   });
 
-  const me = players.find((p) => p.id === mySeatId);
-  if (me) placeCargo(out, me, 0, MY_CARGO_Z, MY_SCALE, -1);
-
-  const rivals = me ? rivalsOf(players, mySeatId) : players;
-  rivals.forEach((player, i) => {
-    placeCargo(out, player, rivalAreaX(i, rivals.length), RIVAL_CARGO_Z, RIVAL_SCALE, 1);
-  });
-
+  for (const { player, side } of seatsOf(view.players, mySeatId)) placeCargo(out, player, side);
   return placed;
 }
 

@@ -1,7 +1,7 @@
 /** Character + arena pickers (profile, solo setup, lobby). */
 
-import { Suspense, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Suspense, useEffect, useState } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { ContactShadows } from '@react-three/drei';
 
 import Crew from './three/Crew.jsx';
@@ -9,32 +9,40 @@ import { CHARACTERS, ARENAS, characterById } from '../../shared/roster.js';
 import { appStore, useStore } from './store.js';
 import { uiTick } from './audio.js';
 
-function Turntable({ children }) {
-  const ref = useRef();
-  useFrame((_, dt) => {
-    if (ref.current) ref.current.rotation.y += dt * 0.45;
-  });
-  return <group ref={ref}>{children}</group>;
+/** Sits facing the camera; every few seconds gives a friendly wave. */
+function usePortraitMood() {
+  const [mood, setMood] = useState('portrait');
+  useEffect(() => {
+    let timer;
+    const loop = (waving) => {
+      setMood(waving ? 'wave' : 'portrait');
+      timer = setTimeout(() => loop(!waving), waving ? 2600 : 4200 + Math.random() * 2500);
+    };
+    timer = setTimeout(() => loop(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+  return mood;
 }
 
 /** Live 3D preview of a sailor on a slowly turning stand. */
-export function SailorPreview({ characterId, mood = 'idle', height = 300 }) {
+export function SailorPreview({ characterId, height = 300 }) {
   const quality = useStore(appStore, (s) => s.settings.quality);
+  const mood = usePortraitMood();
   return (
     <div className="sailor-preview" style={{ height }}>
       <Canvas
         shadows={quality !== 'low'}
         dpr={[1, 1.5]}
-        camera={{ position: [0, 2.4, 13.5], fov: 34 }}
-        onCreated={({ camera }) => camera.lookAt(0, 0.2, 0)}
+        // framed on the face and shoulders, at the sailor's eye level
+        camera={{ position: [0, 2.9, 8.8], fov: 30 }}
+        onCreated={({ camera }) => camera.lookAt(0, 2.05, 0)}
       >
         <ambientLight intensity={0.9} color="#ffe2c0" />
-        <directionalLight position={[3, 6, 8]} intensity={3} castShadow />
+        <directionalLight position={[2.5, 5, 8]} intensity={3} castShadow />
+        <pointLight position={[-3, 3, 4]} intensity={18} color="#ffd2a1" />
         <pointLight position={[-4, 3, -3]} intensity={30} color="#5fa8ff" />
         <Suspense fallback={null}>
-          <Turntable>
-            <Crew character={characterById(characterId)} mood={mood} position={[0, 0, 0]} />
-          </Turntable>
+          <Crew character={characterById(characterId)} mood={mood} position={[0, 0, 0]} showChair={false} />
         </Suspense>
         <ContactShadows position={[0, -3.2, 0]} opacity={0.5} scale={8} blur={2.5} far={4} />
       </Canvas>
