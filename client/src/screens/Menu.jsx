@@ -50,7 +50,7 @@ export default function Menu() {
           <Button variant="ghost" onClick={retry} disabled={checking}>{t('menu.retry')}</Button>
         </div>
       )}
-      <footer className="menu__footer">{t('menu.version', { version: '2.0.0' })}</footer>
+      <footer className="menu__footer">{t('menu.version', { version: __APP_VERSION__ })}</footer>
     </div>
   );
 }

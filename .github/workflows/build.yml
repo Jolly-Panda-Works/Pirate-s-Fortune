@@ -1,0 +1,273 @@
+# Builds Pirate's Fortune for Android and the web, and publishes a GitHub Release with both:
+# the Android app (APK, plus a signed APK/AAB when the keystore is configured) and a
+# self-hostable web build with its game server (PiratesFortune-X.Y.Z-Web.zip).
+#
+# Versions (automatic): every push to main that changes the game is released.
+#   The commits since the last release decide the bump (Conventional Commits):
+#     "feat!: …" or "BREAKING CHANGE" -> major,  "feat: …" -> minor,
+#     "fix:" / "perf:" / "refactor:" / untyped messages -> patch,
+#     only "docs:" / "chore:" / "ci:" / "test:" / "style:" / "build:" -> no release.
+#   GitHub bumps package.json, commits it ("chore(release): vX.Y.Z [skip ci]"), tags vX.Y.Z and
+#   publishes the Release (marked Latest) with the builds and a "What's changed" list.
+#   Set a higher version in package.json yourself to choose it; Run workflow can force a bump.
+#   Pull requests build X.Y.Z-dev.<run> only.
+# Android versionCode = MAJOR*1000000 + MINOR*1000 + PATCH (always grows with the version).
+#
+# Repository settings (Settings -> Secrets and variables -> Actions):
+#   Variables
+#     GAME_SERVER_URL   (optional) default game server baked into the app, e.g. wss://game.example.com
+#   Secrets
+#     ASSETS_TOKEN      read access to the private repo with the licensed Synty models
+#                       (Jolly-Panda-Works/pirates-fortune-assets); without it builds use the
+#                       procedural crew
+#     ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#                       (optional) signed release APK/AAB
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump (auto = decide from the commit messages)"
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ------------------------------------------------------------------ version
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+      code: ${{ steps.v.outputs.code }}
+      sha: ${{ steps.v.outputs.sha }}
+      previous: ${{ steps.v.outputs.previous }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        env:
+          BUMP: ${{ inputs.bump || 'auto' }}
+        run: |
+          SHA="$GITHUB_SHA"
+          newer() { [[ -n "$2" && "$1" != "$2" && "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" == "$2" ]]; }
+          git fetch --quiet --tags origin
+          # Highest released version (tags vX.Y.Z): versions only ever go up.
+          LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+          echo "Latest release: ${LATEST:-none}"
+          PREVIOUS="${LATEST:+v$LATEST}"
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"; RELEASE=true
+          elif [[ "$GITHUB_REF" == "refs/heads/main" && "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            # Work on the newest main (runs are queued; a later push may have landed).
+            git fetch --quiet origin main
+            git checkout --quiet -B main origin/main
+            PKG=$(node -p "require('./package.json').version")
+            BASE="$PKG"
+            if newer "$PKG" "$LATEST"; then BASE="$LATEST"; fi
+
+            if [[ "$BUMP" == "patch" || "$BUMP" == "minor" || "$BUMP" == "major" ]]; then
+              KIND="$BUMP"
+            elif newer "$LATEST" "$PKG" || [[ -z "$LATEST" ]]; then
+              KIND="chosen"   # first release, or package.json set above the last release by hand
+            else
+              KIND=$(node tools/changes.mjs "$PREVIOUS")
+            fi
+            echo "Bump: $KIND"
+
+            if [[ "$KIND" == "none" ]]; then
+              VERSION="$PKG-dev.$GITHUB_RUN_NUMBER"; RELEASE=false
+              echo "::notice::Only docs/chore/ci changes since v$LATEST: no new release."
+            elif [[ "$KIND" == "chosen" ]]; then
+              VERSION="$PKG"; RELEASE=true
+            else
+              if [[ "$BASE" != "$PKG" ]]; then
+                npm version "$BASE" --no-git-tag-version --allow-same-version > /dev/null
+              fi
+              npm version "$KIND" --no-git-tag-version > /dev/null
+              VERSION=$(node -p "require('./package.json').version")
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git commit -qam "chore(release): v$VERSION [skip ci]"
+              for attempt in 1 2 3; do
+                if git push --quiet origin HEAD:main; then break; fi
+                if [[ $attempt == 3 ]]; then echo "::error::Couldn't push the version bump to main."; exit 1; fi
+                git pull --rebase --quiet origin main
+              done
+              RELEASE=true
+            fi
+            SHA=$(git rev-parse HEAD)
+          else
+            PKG=$(node -p "require('./package.json').version")
+            VERSION="$PKG-dev.$GITHUB_RUN_NUMBER"; RELEASE=false
+          fi
+
+          CODE=$(node -e "const [a,b,c]='$VERSION'.split('-')[0].split('.').map(Number); console.log(a*1000000+b*1000+c)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+          echo "### Version $VERSION (release: $RELEASE, Android versionCode $CODE)" >> "$GITHUB_STEP_SUMMARY"
+
+  # ------------------------------------------------------------------ checks
+  test:
+    name: Engine & server tests
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  # ------------------------------------------------- build + release
+  # One job builds the web zip and the Android app and publishes the release, so no
+  # files have to travel between jobs (Actions artifact storage is quota-limited).
+  build:
+    name: Build & release
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      VITE_APP_VERSION: ${{ needs.version.outputs.version }}
+      VITE_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+      ANDROID_VERSION_CODE: ${{ needs.version.outputs.code }}
+      ANDROID_VERSION_NAME: ${{ needs.version.outputs.version }}
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_ASSETS: ${{ secrets.ASSETS_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+        with:
+          # the default also requests the long-removed 'tools' package, which now fails
+          packages: platform-tools
+      - run: npm ci
+
+      # The Synty models are licensed and never committed to this public repo.
+      - name: Fetch licensed models (private)
+        if: env.HAS_ASSETS == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: Jolly-Panda-Works/pirates-fortune-assets
+          token: ${{ secrets.ASSETS_TOKEN }}
+          path: _private_assets
+      - name: Install licensed models
+        if: env.HAS_ASSETS == 'true'
+        run: |
+          mkdir -p client/public/models
+          cp _private_assets/models/* client/public/models/
+          rm -rf _private_assets
+
+      # -------------------------------------------------------------- web
+      - name: Build web client
+        run: npm run build
+      - name: Package web build + game server
+        run: |
+          mkdir -p out _web
+          cp -r dist server js data shared package.json package-lock.json _web/
+          rm -f _web/server/*.test.js
+          cp tools/web-hosting.txt _web/HOSTING.txt
+          cp LICENSE THIRD_PARTY_NOTICES.md _web/
+          (cd _web && zip -qr "../out/PiratesFortune-${VERSION}-Web.zip" .)
+
+      # ---------------------------------------------------------- android
+      - name: Sync web build into the Android project
+        run: npx cap sync android
+      - name: Decode release keystore
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+      - name: Build signed release APK + AAB
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+      - name: Collect outputs
+        run: |
+          OUTPUTS=android/app/build/outputs
+          cp "$OUTPUTS/apk/debug/app-debug.apk" "out/PiratesFortune-$VERSION-Android-debug.apk"
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            cp "$OUTPUTS/apk/release/app-release.apk" "out/PiratesFortune-$VERSION-Android.apk"
+            cp "$OUTPUTS/bundle/release/app-release.aab" "out/PiratesFortune-$VERSION-Android.aab"
+          fi
+          (cd out && sha256sum * > SHA256SUMS.txt)
+          ls -la out
+
+      # ---------------------------------------------------------- release
+      - name: Write release notes
+        if: needs.version.outputs.release == 'true'
+        env:
+          PREVIOUS: ${{ needs.version.outputs.previous }}
+          HAS_MODELS: ${{ env.HAS_ASSETS }}
+        run: |
+          node tools/release-notes.mjs > release-notes.md
+          git fetch --quiet --tags origin
+          node tools/changes.mjs "$PREVIOUS" --notes >> release-notes.md
+      - uses: softprops/action-gh-release@v2
+        if: needs.version.outputs.release == 'true'
+        with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ needs.version.outputs.sha }}
+          name: Pirate's Fortune v${{ env.VERSION }}
+          body_path: release-notes.md
+          generate_release_notes: true
+          make_latest: true
+          files: out/*
+      - name: Keep the dev build (no release)
+        if: needs.version.outputs.release != 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: PiratesFortune-${{ env.VERSION }}
+          path: out/*
+          retention-days: 3

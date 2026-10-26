@@ -1,0 +1,30 @@
+Pirate's Fortune - web build + game server
+=========================================
+
+This folder is the whole game: the browser client (dist/) and the Colyseus game
+server that runs the rules engine. One Node.js process serves both.
+
+Run it
+1. Install Node.js 22 or newer.
+2. In this folder:   npm ci --omit=dev
+3. Start:            npm start
+4. Open http://localhost:2567 in a browser. Friends on the same network can open
+   http://<this computer's IP>:2567, and the Android app connects to that same
+   address (Settings -> Game server address).
+
+Options
+- GAME_PORT=8080 npm start   serves on another port.
+- Behind HTTPS (recommended on the internet), proxy both normal requests and
+  websockets to the port above, e.g. nginx:
+
+    location / {
+        proxy_pass http://127.0.0.1:2567;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+3D models
+- Builds published by the official CI include the licensed Synty models in dist/models/.
+  They are licensed to Jolly Panda Studio and must not be extracted or redistributed.
+  Without them, the game uses its own procedural crew and props.

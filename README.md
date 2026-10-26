@@ -1,6 +1,6 @@
 # Pirate's Fortune
 
-[![Android build](https://github.com/Jolly-Panda-Works/Pirate-s-Fortune/actions/workflows/android.yml/badge.svg)](https://github.com/Jolly-Panda-Works/Pirate-s-Fortune/actions/workflows/android.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
+[![Android build](https://github.com/Jolly-Panda-Works/Pirate-s-Fortune/actions/workflows/build.yml/badge.svg)](https://github.com/Jolly-Panda-Works/Pirate-s-Fortune/actions/workflows/build.yml) [![Latest release](https://img.shields.io/github/v/release/Jolly-Panda-Works/Pirate-s-Fortune?color=gold)](https://github.com/Jolly-Panda-Works/Pirate-s-Fortune/releases/latest) [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)
 
 A push-your-luck pirate treasure card game for 2–4 players. This is a 3D client built with React Three Fiber, multiplayer runs on Colyseus, and the Android app is built with Capacitor.
 
@@ -18,9 +18,18 @@ Production-style, as a single process: run `npm run build`, then `npm start`. Th
 
 Tests: `npm test` runs the 219 engine tests and the server tests.
 
-## Android
+## Releases and Android
 
-Every push to `main` builds an APK in GitHub Actions (`.github/workflows/android.yml`). The newest build is attached to the **android-latest** pre-release, and tags `v*` create a versioned release. In the app, open **Settings → Game server address** and enter the IP of the computer running `npm start`, for example `192.168.1.20:2567`.
+Every push to `main` is built and released automatically by `.github/workflows/build.yml`, in the same way as our other game, [mini-sumo-3d](https://github.com/Jolly-Panda-Works/mini-sumo-3d). The commit messages decide the next version, following [Conventional Commits](https://www.conventionalcommits.org):
+
+| Commit message | Version bump |
+|---|---|
+| `feat: …` | minor |
+| `fix: …` (or a message without a type) | patch |
+| `feat!: …` | major |
+| only `docs:` / `chore:` / `ci:` | no release |
+
+CI updates `package.json`, tags `vX.Y.Z`, and publishes a GitHub Release marked **Latest**. The release holds the Android APK (and a signed APK/AAB when the keystore secrets are set), the `Web.zip` bundle containing the web client and the game server, and `SHA256SUMS.txt`. In the app, open **Settings → Game server address** and enter the IP of the computer running `npm start`, for example `192.168.1.20:2567`.
 
 To build an APK locally you need the Android SDK. Run `npm run android:apk`.
 
